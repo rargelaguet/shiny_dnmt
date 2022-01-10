@@ -10,6 +10,7 @@ paga <- readRDS(paste0(basedir,"/paga_network.rds"))
 
 # Load cell metadata
 sample_metadata <- fread(paste0(basedir,"/cell_metadata.txt.gz")) %>% 
+  .[,dataset:=ifelse(grepl("Grosswendt",sample),"CRISPR","KO")] %>%
   setnames("celltype.mapped","celltype") %>% 
   .[,sample:=NULL] %>% setnames("alias","sample") %>%
   .[,celltype := factor(celltype, levels = celltypes, ordered = TRUE)]
@@ -23,3 +24,10 @@ link_rna_expr = HDF5Array(file = paste0(basedir,"/rna_expr.hdf5"), name = "expr_
 colnames(link_rna_expr) <- fread(paste0(basedir,"/cells_rna.txt"), header=F)[[1]]
 rownames(link_rna_expr) <- genes
 
+# Load pseudobulk SingleCellExperiment object
+sce.pseudobulk = readRDS(file.path(basedir,"SingleCellExperiment_pseudobulk_class_celltype_dataset.rds"))
+
+
+# Load differential pseudobulk data
+diff_pseudobulk.dt <- fread(file.path(basedir,"diff_pseudobulk.txt.gz"))
+# diff_pseudobulk.dt[,.N,by="gene"] %>% View

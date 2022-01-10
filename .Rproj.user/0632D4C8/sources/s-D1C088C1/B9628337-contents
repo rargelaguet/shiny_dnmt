@@ -48,10 +48,10 @@ ui <- shinyUI(fluidPage(
   navbarPage(
   # tabsetPanel(
     # id = "tabs",
-    # title = "A cellular atlas of DNA methylation dysregulation during mouse early organogenesis",
-    title = "foo",
+    title = "A cellular atlas of DNA methylation dysregulation during mouse early organogenesis",
+    # title = "foo",
     theme = shinytheme("spacelab"),
-
+    
     tabPanel(
       title = "UMAP", id = "umap",
       sidebarPanel(width=3,
@@ -71,38 +71,56 @@ ui <- shinyUI(fluidPage(
     
     tabPanel(
       title = "Gene expression (pseudobulk)", id = "gene_expr_pseudoubulk",
-      sidebarPanel(width=3, selectizeInput(inputId = "gene", label = "Select gene", choices=NULL, selected="T")
+      sidebarPanel(width=3, 
+        selectizeInput(inputId = "gene_pseudobulk", label = "Select gene", choices=NULL, selected="T"),
+        checkboxGroupInput("dataset_gene_expr_pseudoubulk", label = "Data set",  choices = list("KO" = "KO", "CRISPR (Grosswendt2020)" = "CRISPR"), selected = c("KO","CRISPR"))
       ),
       mainPanel(
-        girafeOutput("plot_gene_expr_pseudoubulk")
+        plotOutput("plot_gene_expr_pseudoubulk",  width = "1050px", height = "500px")
+        # girafeOutput("plot_gene_expr_pseudoubulk")
       )
     ),
 
-        
     tabPanel(
-      title = "Differential expression (pseudobulk)", id = "diff_expr_pseudoubulk",
+      title = "Diff. expr (volcano plots)", id = "diff_expr_volcano",
       sidebarPanel(width=3,
-                   selectInput(inputId = "classA", label = "Select class A", choices = classes, selected = "WT"),
-                   selectInput(inputId = "classB", label = "Select class B", choices = classes, selected = "Dnmt1_KO"),
-                   plotOutput("differential_motif", height="100px", width="300px"),
-                   # sliderInput("differential_range", label = "Range of differential values", min=-25, max=25, step=0.5, value = c(-25,25)),
-                   # sliderInput("highlight_top_n_genes", label = "Highlight top N genes", min=0, max=100, step=1, value = 0)
-      ),
+                   selectInput(inputId = "classA_diff_expr_volcano", label = "Select class A", choices = classes[classes!="WT"], selected = "Dnmt1_KO"),
+                   selectInput(inputId = "classB_diff_expr_volcano", label = "Select class B", choices = "WT", selected = "WT"),
+                   selectInput("celltypes_diff_expr_volcano", "Celltypes", choices = celltypes, selected = "NMP", multiple = TRUE)
       ),
       mainPanel(
-        girafeOutput("plot_diff_expr_pseudoubulk")
+        # HTML("A positive sign indicates that the gene is more expressed in the WT"),
+        plotOutput("plot_diff_volcano")
+      )
+    ),
+    
+    
+    tabPanel(
+      title = "Diff. expr (heatmap)", id = "diff_expr_heatmap_pseudoubulk",
+      sidebarPanel(width=3,
+                   selectInput("genes_diff_heatmap", "Genes", choices = genes, selected = c("T","Sox2","Foxa2","Hoxd9"), multiple = TRUE),
+                   selectInput("classes_diff_heatmap", "Classes", choices = classes[classes!="WT"], selected = classes[classes!="WT"], multiple = TRUE),
+                   selectInput("celltypes_diff_heatmap", "Celltypes", choices = celltypes, selected = celltypes, multiple = TRUE)
+      ),
+      mainPanel(
+        HTML("A positive sign indicates that the gene is more expressed in the WT"),
+        plotOutput("plot_diff_heatmap")
       )
     ),
     
     tabPanel(
       title = "Celltype proportions", id = "celltype_proportions",
       sidebarPanel(width=3, 
-        selectizeInput(inputId = "class", label = "Select class", choices=classes),
-        checkboxInput("split_samples", "Split samples")
+        selectizeInput(inputId = "class_celltype_proportions", label = "Select class", choices=classes, selected="WT"),
+        checkboxInput("split_samples", "Split samples", value = T),
+        checkboxInput("remove_extraembryonic", "Remove Extraembryonic cell types", value = F),
+        checkboxGroupInput("dataset_celltype_proportions", label = "Data set",  choices = list("KO" = "KO", "CRISPR (Grosswendt2020)" = "CRISPR"), selected = c("KO","CRISPR"))
       ),
       mainPanel(
         girafeOutput("plot_celltype_proportions")
       )
-    )
+      
+    ),
+    tags$style(HTML(".navbar-header { width:100% } .navbar-brand { width: 100%; text-align: left; font-size: 150%; }"))
   )
-)
+))
