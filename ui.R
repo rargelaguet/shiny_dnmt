@@ -73,10 +73,12 @@ ui <- shinyUI(fluidPage(
       title = "Gene expression (pseudobulk)", id = "gene_expr_pseudoubulk",
       sidebarPanel(width=3, 
         selectizeInput(inputId = "gene_pseudobulk", label = "Select gene", choices=NULL, selected="T"),
+        selectInput("classes_gene_expr_pseudobulk", "Classes", choices = classes, selected = classes, multiple = TRUE),
+        selectInput("celltypes_gene_expr_pseudobulk", "Celltypes", choices = celltypes, selected = celltypes, multiple = TRUE),
         checkboxGroupInput("dataset_gene_expr_pseudoubulk", label = "Data set",  choices = list("KO" = "KO", "CRISPR (Grosswendt2020)" = "CRISPR"), selected = c("KO","CRISPR"))
       ),
       mainPanel(
-        plotOutput("plot_gene_expr_pseudoubulk",  width = "1050px", height = "500px")
+        plotOutput("plot_gene_expr_pseudoubulk",  width = "1050px", height = "800px")
         # girafeOutput("plot_gene_expr_pseudoubulk")
       )
     ),
@@ -119,8 +121,25 @@ ui <- shinyUI(fluidPage(
       mainPanel(
         girafeOutput("plot_celltype_proportions")
       )
-      
     ),
+    
+    tabPanel(
+      title = "Celltype proportions comparisons", id = "celltype_proportions_comparisons",
+      sidebarPanel(width=3, 
+                   selectizeInput(inputId = "class_celltype_comparisons", label = "Select class", choices=classes, selected="DNMT1_KO"),
+                   checkboxInput("split_samples_celltype_comparisons", "Split samples", value = T),
+                   checkboxInput("remove_extraembryonic_celltype_comparisons", "Remove Extraembryonic cell types", value = F),
+                   checkboxGroupInput("dataset_celltype_comparisons", label = "Data set",  choices = list("KO" = "KO", "CRISPR (Grosswendt2020)" = "CRISPR"), selected = c("KO","CRISPR")),
+                   selectInput("output_type_celltype_comparisons", label = "Output type",  choices = list("Box plots" = "box_plots", "Polar plots" = "polar_plots"), selected = "Boxplots")
+      ),
+      mainPanel(
+        # girafeOutput("plot_celltype_proportions_comparisons")
+        plotOutput("plot_celltype_proportions_comparisons")
+      )
+    ),
+    
+    
+    
     tags$style(HTML(".navbar-header { width:100% } .navbar-brand { width: 100%; text-align: left; font-size: 150%; }"))
   )
 ))

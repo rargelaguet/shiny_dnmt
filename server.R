@@ -226,8 +226,8 @@ server <- function(input, output, session) {
   # - fix order of classes 
   # - fix colors
   # - fix facet text
-  # - add option to select celltypes
   # - add option to add number of cells for each barplot
+  # - enable single-cell vs pseudobulk option
   
   plot_gene_expr_pseudobulk <- reactive({
     
@@ -235,7 +235,17 @@ server <- function(input, output, session) {
     # input <- list()
     # input$gene_pseudobulk <- "T"
     # input$dataset_gene_expr_pseudoubulk <- c("KO", "CRISPR")
+    # input$classes_gene_expr_pseudobulk <- classes
+    # input$celltypes_gene_expr_pseudobulk <- celltypes
     ## END TEST ##
+    
+    sce.pseudobulk <- sce.pseudobulk[,sce.pseudobulk$class%in%input$classes_gene_expr_pseudobulk]
+    sce.pseudobulk <- sce.pseudobulk[,sce.pseudobulk$celltype%in%input$celltypes_gene_expr_pseudobulk]
+    sce.pseudobulk <- sce.pseudobulk[,sce.pseudobulk$dataset%in%input$dataset_gene_expr_pseudoubulk]
+    
+    ##############
+    ## Barplots ##
+    ##############
     
     to.plot <- data.table(
       sample = colnames(sce.pseudobulk),
@@ -243,10 +253,10 @@ server <- function(input, output, session) {
       class = sce.pseudobulk$class,
       celltype = sce.pseudobulk$celltype,
       dataset = sce.pseudobulk$dataset
-    ) %>% .[dataset%in%input$dataset_gene_expr_pseudoubulk]
+    )
     
     p_list <- list()
-    for (j in unique(to.plot$dataset)) {
+    for (j in input$dataset_gene_expr_pseudoubulk) {
       
       p_list[[j]] <- ggplot(to.plot[dataset==j], aes(x=class, y=expr, fill=class)) +
         geom_bar(stat="identity", color="black", width=0.75) +
@@ -268,8 +278,58 @@ server <- function(input, output, session) {
           # legend.text = element_text(size=rel(0.85))
         )
     }
-  return(cowplot::plot_grid(plotlist=p_list, ncol = 2))
-  })
+  p.barplots <- cowplot::plot_grid(plotlist=p_list, ncol = 2)
+  
+  ##########
+  ## PAGA ##
+  ##########
+  
+  # Plot graph structure
+  p <- ggnet2(
+    net = paga,
+    mode = c("x", "y"),
+    node.size = 0,
+    edge.size = 0.15,
+    edge.color = "grey",
+    label = FALSE,
+    label.size = 2.3
+  )
+  
+  paga.celltype.order <- p$data$label
+  
+  rna.col.seq <- chromvar.col.seq <- round(seq(0,1,0.1), 2)
+  rna.colors <- colorRampPalette(c("gray92", "darkgreen"))(length(rna.col.seq))
+  
+  max.expr <- max(logcounts(sce.pseudobulk[input$gene_pseudobulk,]))
+  
+  p_list <- list()
+  for (j in input$classes_gene_expr_pseudobulk) {
+    
+    sce.tmp <- sce.pseudobulk[,sce.pseudobulk$class==j]
+    metadata(sce.tmp)$n_cells <- metadata(sce.tmp)$n_cells[stringr::str_split(names(metadata(sce.tmp)$n_cells), pattern = "-") %>% map_chr(1) == j]
+    names(metadata(sce.tmp)$n_cells) <- stringr::str_split(names(metadata(sce.tmp)$n_cells), pattern = "-") %>% map_chr(2)
+    colnames(sce.tmp) <- sce.tmp$celltype
+    
+    expr.values <- rep(as.numeric(NA),length(paga.celltype.order)); names(expr.values) <- paga.celltype.order
+    expr.values[colnames(sce.tmp)] <- logcounts(sce.tmp[input$gene_pseudobulk,])[1,] / max.expr 
+    
+    expr.colors <- round(expr.values,1) %>% map(~ rna.colors[which(rna.col.seq == .)]) %>% unlist
+    
+    p_list[[j]] <- p + geom_text(label = "\u25D0", aes(x=x, y=y), color=expr.colors, size=13, family = "Arial Unicode MS",
+                                 data = p$data[p$data$label%in%names(expr.colors),c("x","y")] %>% dplyr::mutate(expr=expr.colors)) +
+      scale_colour_manual(values=expr.colors) + 
+      labs(title=j) +
+      theme(
+        plot.title = element_text(hjust = 0.5)
+      )
+    
+  }
+  p.paga <- cowplot::plot_grid(plotlist=p_list, nrow=1)
+  
+  cowplot::plot_grid(plotlist=list(p.barplots,p.paga), nrow = 2, rel_heights = c(3.5/5,1.5/5))
+})
+  
+  
     
   output$plot_gene_expr_pseudoubulk = renderPlot({
     shiny::validate(need(input$gene_pseudobulk%in%genes, "" ))
@@ -480,6 +540,148 @@ server <- function(input, output, session) {
   output$plot_celltype_proportions = renderGirafe({
     # shiny::validate(need(input$gene_umap_rna%in%genes, "" ))
     plot_celltype_proportions()
+  })
+  
+  
+  ######################################
+  ## Celltype proportions comparisons ##
+  ######################################
+  
+  # TO-DO: 
+  # - barplots per sample
+  # - 
+  
+  plot_celltype_proportions_comparisons <- reactive({
+    
+    ## START TEST ##
+    # input <- list()
+    # input$class_celltype_comparisons <- c("Dnmt1_KO","Dnmt3a_KO")
+    # input$dataset_celltype_comparisons <- c("KO", "CRISPR")
+    # input$split_samples_celltype_comparisons <- TRUE
+    # input$remove_extraembryonic_celltype_comparisons <- TRUE
+    # input$output_type_celltype_comparisons <- "box_plots"
+    ## END TEST ##
+    
+    # remove small embryos
+    # if (opts$remove.small.embryos) {
+    #   opts$min.cells <- 1500
+    #   sample_metadata <- sample_metadata %>%
+    #     .[,N:=.N,by="sample"] %>% .[N>opts$min.cells] %>% .[,N:=NULL]
+    # }
+    
+    # remove ExE cells
+    if (input$remove_extraembryonic_celltype_comparisons) {
+      sample_metadata <- sample_metadata[!celltype%in%c("Visceral_endoderm","ExE_endoderm","ExE_ectoderm","Parietal_endoderm")]
+    }
+    
+    sample_metadata <- sample_metadata[dataset%in%input$dataset_celltype_comparisons]
+    
+    # calculate celltype proportions for WT samples
+    wt_proportions.dt <- sample_metadata %>%
+      .[class=="WT"] %>%
+      .[,ncells:=.N] %>%
+      .[,.(proportion=.N/unique(ncells), N=round(.N/length(unique(sample)))), by="celltype"]
+    
+    # calculate celltype proportions for KO samples
+    ko_proportions_per_sample.dt <- sample_metadata %>%
+      .[class%in%input$class_celltype_comparisons] %>%
+      setkey(celltype,sample) %>%
+      .[CJ(celltype,sample, unique = TRUE), .N, by = .EACHI] %>%
+      merge(unique(sample_metadata[,c("sample","class")]), by="sample") %>%
+      .[,ncells:=sum(N), by="sample"] %>% .[,proportion:=(N+1)/ncells]
+    
+    # Calculate difference in celltype proportions between KO and WT
+    proportions_per_sample.dt <- merge(
+      ko_proportions_per_sample.dt, 
+      wt_proportions.dt, 
+      by = c("celltype"), allow.cartesian=T, suffixes = c(".ko",".wt")
+    ) %>% .[,c("diff_proportion"):=list(log2(proportion.ko/proportion.wt))] 
+    
+    ylimits <- max(abs(proportions_per_sample.dt[!is.infinite(diff_proportion),diff_proportion]))
+    
+    if (input$output_type_celltype_comparisons=="polar_plots") {
+      
+      # celltypes.to.plot <- proportions_per_sample.dt %>%
+      #   .[class==i,.(N=sum(N.ko)+sum(N.wt)),by=c("class","celltype")] %>% 
+      #   .[N>=25,celltype] %>% as.character
+      # 
+      
+      to.plot <- proportions_per_sample.dt %>%
+        # .[class==i & celltype%in%celltypes.to.plot]  %>%
+        .[diff_proportion>=ylimits,diff_proportion:=ylimits] %>%
+        .[diff_proportion<=(-ylimits),diff_proportion:=(-ylimits)]
+      
+      to.plot.wt_line <- data.table(
+        celltype = unique(proportions_per_sample.dt$celltype),
+        diff_proportion = log2(1)
+      )
+      
+      p <- ggplot(to.plot, aes(x=celltype, y=-diff_proportion, group=1)) +
+        geom_point(aes(fill = celltype), size=3, stat = 'identity', shape=21) +
+        geom_polygon(color="black", fill=NA, alpha=0.5, linetype="dashed", data=to.plot.wt_line[celltype%in%to.plot$celltype]) +
+        scale_fill_manual(values=celltype_colours, drop=F) +
+        coord_polar() + ylim(ylimits,-ylimits) +
+        facet_wrap(~dataset+class) +
+        guides(colour = guide_legend(override.aes = list(size=2), ncol=1)) +
+        scale_size(guide = 'none') +
+        theme_bw() +
+        theme(
+          legend.position = "none",
+          # strip.text =  element_text(size=rel(0.5)),
+          axis.title=element_blank(),
+          axis.text=element_blank(),
+          axis.ticks.y=element_blank(),
+          axis.line=element_blank()
+        )
+    } else if (input$output_type_celltype_comparisons=="box_plots") {
+      
+      celltypes.to.plot <- proportions_per_sample.dt %>%
+        .[,.(N=sum(N.ko)+sum(N.wt)),by=c("class","celltype")] %>% 
+        .[N>=50,celltype] %>% as.character
+      
+      to.plot <- proportions_per_sample.dt %>%
+        .[celltype%in%celltypes.to.plot] %>%
+        merge(unique(sample_metadata[,c("sample","dataset")]),by="sample")
+      
+      celltype.order <- to.plot %>%
+        .[,mean(diff_proportion),by="celltype"] %>% setorder(-V1) %>% .$celltype
+      to.plot <- to.plot %>% .[,celltype:=factor(celltype,levels=celltype.order)]
+      
+      p <- ggplot(to.plot, aes(x=celltype, y=diff_proportion)) +
+        geom_point(aes(fill = celltype), shape=21, size=1) +
+        geom_boxplot(aes(fill = celltype), alpha=0.5) +
+        facet_wrap(~dataset+class,nrow=1) +
+        coord_flip(ylim=c(-ylimits,ylimits)) +
+        geom_hline(yintercept=0, linetype="dashed", size=0.5) +
+        scale_fill_manual(values=celltype_colours, drop=F) +
+        theme_classic() +
+        labs(y="Difference in proportions (log2)", x="") +
+        theme(
+          legend.position = "none",
+          # axis.title = element_blank(),
+          axis.text.y = element_text(color="black"),
+          axis.text.x = element_text(color="black")
+        )
+      
+    }
+    
+    # girafe(
+    #   code = print(p),
+    #   width_svg = 13, height_svg = 9,
+    #   options = list( 
+    #     opts_sizing(rescale = FALSE),
+    #     opts_selection(type = "single", css = ""),
+    #     opts_hover(css = "cursor:pointer;fill:magenta;color:magenta")
+    #   )
+    # ) %>% return(.)
+    return(p)
+    
+  })
+  
+  output$plot_celltype_proportions_comparisons = renderPlot({
+  # output$plot_celltype_proportions_comparisons = renderGirafe({
+    # shiny::validate(need(input$gene_umap_rna%in%genes, "" ))
+    plot_celltype_proportions_comparisons()
   })
 
 
