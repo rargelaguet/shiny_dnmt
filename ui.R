@@ -1,62 +1,50 @@
-library(data.table)
-library(purrr)
-library(shiny)
-# library(shinyFiles)
-# library(ggplot2)
-library(DT)
-library(ggiraph)
-library(rintrojs)
-library(shinythemes)
 
-#####################
-## Define settings ##
-#####################
+###################################
+## Define settings and load data ##
+###################################
 
-basedir <- "/Users/argelagr/data/shiny_dnmt_tet"
+# basedir <- "/Users/argelagr/data/shiny_dnmt_tet"
 
+source("load_libraries.R")
 source("utils.R")
-
-big_plot_width = "900px"
-big_plot_height = "500px"
-
-narrower_plot_width = "650px"
-
-half_plot_width = "450px"
-narrower_half_plot_width = "350px"
-half_plot_height = "260px"
-
-###############
-## Load data ##
-###############
+source("load_data.R")
 
 # celltypes <- fread(paste0(basedir,"/celltypes.txt"), header=F)[[1]]
-genes <- fread(paste0(basedir,"/genes.txt"), header=F)[[1]]
+# genes <- fread(paste0(basedir,"/genes.txt"), header=F)[[1]]
+# genes <- fread("data/genes.txt", header=F)[[1]]
 
-##################
-## Shiny app UI ##
-##################
+##############
+## Shiny UI ##
+##############
 
 ui <- shinyUI(fluidPage(
-  # sidebarLayout(
-  
-  # mainPanel(
-  #   id = "main",
-  #   width = 10,
-  #   titlePanel(
-  #     "A cellular atlas of DNA methylation dysregulation during mouse early organogenesis"
-  #   ),
   navbarPage(
-  # tabsetPanel(
-    # id = "tabs",
     title = "A cellular atlas of DNA methylation dysregulation during mouse early organogenesis",
-    # title = "foo",
     theme = shinytheme("spacelab"),
+
+    tabPanel(
+      title = "Overview", id = "overview",
+      br(),
+      includeMarkdown("overview.md")
+    ),
+    
+    tabPanel(
+      title = "Dataset stats", id = "stats",
+      sidebarPanel(width=3,
+        selectInput(inputId = "stat_to_plot", label = "Statistic to plot", choices = c("Number of cells"="ncells", "Number of embryos"="nembryos", "Number of genes"="ngenes"), selected = "ncells"),
+      ),
+      mainPanel(
+        # girafeOutput("umap", width = "1000px", height = "800px"),
+        plotOutput("dataset_stats", width = "800px", height = "400px")
+      )
+    ),
     
     tabPanel(
       title = "UMAP", id = "umap",
       sidebarPanel(width=3,
         selectInput(inputId = "class", label = "Class", choices = classes, selected = "WT"),
         selectInput(inputId = "colourby", label = "Plot colour", choices = c("Cell type"="celltype", "Data set"="dataset", "Sample"="sample", "Gene expression"="gene_expression"), selected = "celltype"),
+        checkboxInput("subset_cells_umap", "Subset number of cells for the UMAP", value = TRUE),
         conditionalPanel(
           condition = "input.colourby == 'gene_expression'",
           selectizeInput("gene_umap_rna", "Select gene to show RNA expression", choices = NULL, selected = "T")
@@ -64,21 +52,22 @@ ui <- shinyUI(fluidPage(
         # checkboxInput("numbers", "Annotate clusters in plot"),
       ),
       mainPanel(
-        girafeOutput("umap", width = "900px", height = "800px"),
+        girafeOutput("umap", width = "1000px", height = "800px"),
         # plotOutput("stage_contribution", width = big_plot_width)
       )
     ),
     
     tabPanel(
-      title = "Gene expression (pseudobulk)", id = "gene_expr_pseudoubulk",
+      title = "Gene expression", id = "gene_expr_pseudoubulk",
       sidebarPanel(width=3, 
         selectizeInput(inputId = "gene_pseudobulk", label = "Select gene", choices=NULL, selected="T"),
         selectInput("classes_gene_expr_pseudobulk", "Classes", choices = classes, selected = classes, multiple = TRUE),
-        selectInput("celltypes_gene_expr_pseudobulk", "Celltypes", choices = celltypes, selected = celltypes, multiple = TRUE),
-        checkboxGroupInput("dataset_gene_expr_pseudoubulk", label = "Data set",  choices = list("KO" = "KO", "CRISPR (Grosswendt2020)" = "CRISPR"), selected = c("KO","CRISPR"))
+        selectInput("celltypes_gene_expr_pseudobulk", "Celltypes", choices = celltypes_pseudobulk, selected = celltypes_pseudobulk, multiple = TRUE),
+        checkboxGroupInput("dataset_gene_expr_pseudoubulk", label = "Data set",  choices = list("KO" = "KO", "CRISPR (Grosswendt2020)" = "CRISPR"), selected = c("KO","CRISPR")),
+        checkboxInput("add_number_observations_pseudobulk", "Show number of pseudobulk replicates per condition", value = TRUE),
       ),
       mainPanel(
-        plotOutput("plot_gene_expr_pseudoubulk",  width = "1050px", height = "800px")
+        plotOutput("plot_gene_expr_pseudoubulk",  width = "800px", height = "700px")
         # girafeOutput("plot_gene_expr_pseudoubulk")
       )
     ),
@@ -102,11 +91,12 @@ ui <- shinyUI(fluidPage(
       sidebarPanel(width=3,
                    selectInput("genes_diff_heatmap", "Genes", choices = genes, selected = c("T","Sox2","Foxa2","Hoxd9"), multiple = TRUE),
                    selectInput("classes_diff_heatmap", "Classes", choices = classes[classes!="WT"], selected = classes[classes!="WT"], multiple = TRUE),
-                   selectInput("celltypes_diff_heatmap", "Celltypes", choices = celltypes, selected = celltypes, multiple = TRUE)
+                   selectInput("celltypes_diff_heatmap", "Celltypes", choices = celltypes_pseudobulk, selected = celltypes_pseudobulk, multiple = TRUE)
       ),
       mainPanel(
         HTML("A positive sign indicates that the gene is more expressed in the WT"),
-        plotOutput("plot_diff_heatmap")
+        # plotOutput("plot_diff_heatmap")
+        girafeOutput("plot_diff_heatmap")
       )
     ),
     
@@ -114,9 +104,10 @@ ui <- shinyUI(fluidPage(
       title = "Celltype proportions", id = "celltype_proportions",
       sidebarPanel(width=3, 
         selectizeInput(inputId = "class_celltype_proportions", label = "Select class", choices=classes, selected="WT"),
-        checkboxInput("split_samples", "Split samples", value = T),
+        # checkboxInput("split_samples", "Split samples", value = T),
         checkboxInput("remove_extraembryonic", "Remove Extraembryonic cell types", value = F),
-        checkboxGroupInput("dataset_celltype_proportions", label = "Data set",  choices = list("KO" = "KO", "CRISPR (Grosswendt2020)" = "CRISPR"), selected = c("KO","CRISPR"))
+        checkboxGroupInput("dataset_celltype_proportions", label = "Data set",  choices = list("KO" = "KO", "CRISPR (Grosswendt2020)" = "CRISPR"), selected = c("KO","CRISPR")),
+        selectizeInput("visualisation_type_celltype_proportions", label = "visualisation",  choices = c("Barplots per sample", "Boxplots per class"), selected = "Boxplots per class")
       ),
       mainPanel(
         girafeOutput("plot_celltype_proportions")
@@ -126,15 +117,14 @@ ui <- shinyUI(fluidPage(
     tabPanel(
       title = "Celltype proportions comparisons", id = "celltype_proportions_comparisons",
       sidebarPanel(width=3, 
-                   selectizeInput(inputId = "class_celltype_comparisons", label = "Select class", choices=classes, selected="DNMT1_KO"),
-                   checkboxInput("split_samples_celltype_comparisons", "Split samples", value = T),
+                   selectizeInput(inputId = "class_celltype_comparisons", label = "Select class", choices=classes[classes!="WT"], selected="Dnmt1_KO"),
+                   # selectInput("class_celltype_comparisons", "Select class", choices = classes[classes!="WT"], selected = classes[classes!="WT"], multiple = TRUE),
                    checkboxInput("remove_extraembryonic_celltype_comparisons", "Remove Extraembryonic cell types", value = F),
-                   checkboxGroupInput("dataset_celltype_comparisons", label = "Data set",  choices = list("KO" = "KO", "CRISPR (Grosswendt2020)" = "CRISPR"), selected = c("KO","CRISPR")),
-                   selectInput("output_type_celltype_comparisons", label = "Output type",  choices = list("Box plots" = "box_plots", "Polar plots" = "polar_plots"), selected = "Boxplots")
+                   checkboxInput("split_by_dataset_celltype_comparisons", label = "Split by data set",  value=F),
+                   checkboxGroupInput("dataset_celltype_comparisons", label = "Data set",  choices = list("KO" = "KO", "CRISPR (Grosswendt2020)" = "CRISPR"), selected = c("KO","CRISPR"))
       ),
       mainPanel(
-        # girafeOutput("plot_celltype_proportions_comparisons")
-        plotOutput("plot_celltype_proportions_comparisons")
+        girafeOutput("plot_celltype_proportions_comparisons")
       )
     ),
     

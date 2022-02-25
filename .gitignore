@@ -1,6 +1,3 @@
-# Resilio Sync
-*.sync
-
 # MAC
 *Icon*
 *.DS_Store
@@ -28,15 +25,8 @@
 
 # Ignore local folders
 **/local-data
-*.Rproj.user
+*.Rproj.user*
 
-# Ignore .ipynb stuff. NOTE 11.06.2020 I've decided to add them back
-#*.ipynb*
-
-# Ignore snakemake stuff
-.snakemake/
-.Rproj.user
-
-*.snakemake*
-*slurm*out
-packrat/lib*/
+# data folder
+data/
+old/
