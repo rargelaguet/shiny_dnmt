@@ -1,17 +1,25 @@
 
-###################################
-## Define settings and load data ##
-###################################
+#####################
+## Define settings ##
+#####################
 
-# basedir <- "/Users/argelagr/data/shiny_dnmt_tet"
+if (Sys.info()[['nodename']]=="BI2404M") {
+  data_folder <- "/Users/argelagr/shiny_dnmt/data"
+} else if (Sys.info()[['nodename']]=="Ricards-MacBook-Pro.local") {
+  data_folder <- "/Users/rargelaguet/shiny_dnmt/data"
+}
 
-source("load_libraries.R")
-source("utils.R")
-source("load_data.R")
+# for testing
+# shiny::loadSupport()
 
-# celltypes <- fread(paste0(basedir,"/celltypes.txt"), header=F)[[1]]
-# genes <- fread(paste0(basedir,"/genes.txt"), header=F)[[1]]
-# genes <- fread("data/genes.txt", header=F)[[1]]
+#############################
+## Define global variables ##
+#############################
+
+celltypes <- fread(paste0(data_folder,"/celltypes.txt"), header=F)[[1]]
+genes <- fread(paste0(data_folder,"/genes.txt"), header=F)[[1]]
+classes <- c("WT","Dnmt3a_KO","Dnmt3b_KO","Dnmt1_KO")
+celltypes_pseudobulk <- celltypes
 
 ##############
 ## Shiny UI ##

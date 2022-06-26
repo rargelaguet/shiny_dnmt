@@ -1,3 +1,31 @@
+###############
+## libraries ##
+###############
+
+library(R.utils)
+library(HDF5Array)
+library(data.table)
+library(purrr)
+library(DT)
+
+# shiny
+library(shiny)
+library(shinyFiles)
+library(shinythemes)
+library(ggiraph)
+
+# general viz
+library(GGally)
+library(cowplot)
+library(ggrepel)
+library(ggplot2)
+require(patchwork)
+require(ggpubr) # to do: remove this dependency?
+
+######################
+## Global variables ##
+######################
+
 classes <- c(
   "WT", 
   "Dnmt3a_KO", 

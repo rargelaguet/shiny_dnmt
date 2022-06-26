@@ -1,21 +1,17 @@
 
-###################################
-## Define settings and load data ##
-###################################
+#####################
+## Define settings ##
+#####################
 
-# setwd("/Users/argelagr/shiny_dnmt_tet")
-# basedir <- "/Users/argelagr/data/shiny_dnmt_tet"
+if (Sys.info()[['nodename']]=="BI2404M") {
+  data_folder <- "/Users/argelagr/shiny_dnmt/data"
+} else if (Sys.info()[['nodename']]=="Ricards-MacBook-Pro.local") {
+  data_folder <- "/Users/rargelaguet/shiny_dnmt/data"
+}
 
-source("load_libraries.R")
-source("utils.R")
-source("load_data.R")
-
-################
-## Load utils ##
-################
-
-source("utils.R")
-source("ggnet2.R")
+# for testing
+# shiny::loadSupport()
+# source("load_data.R")
 
 ##################
 ## Shiny server ##
