@@ -3,11 +3,11 @@
 ## Define settings ##
 #####################
 
-if (Sys.info()[['nodename']]=="BI2404M") {
-  data_folder <- "/Users/argelagr/shiny_dnmt/data"
-} else if (Sys.info()[['nodename']]=="Ricards-MacBook-Pro.local") {
-  data_folder <- "/Users/rargelaguet/shiny_dnmt/data"
-}
+# if (Sys.info()[['nodename']]=="BI2404M") {
+#   data_folder <- "/Users/argelagr/shiny_dnmt/data"
+# } else if (Sys.info()[['nodename']]=="rargelaguet.local") {
+#   data_folder <- "/Users/rargelaguet/shiny_dnmt/data"
+# }
 
 ###########################
 ## Load global variables ##
@@ -30,13 +30,13 @@ sample_metadata <- fread(paste0(data_folder,"/cell_metadata.txt.gz")) %>%
 #########################
 
 # Load gene expression matrix
-link_rna_expr = HDF5Array(file = paste0(data_folder,"/rna_expr.hdf5"), name = "expr_logcounts")
+link_rna_expr = HDF5Array(file.path(data_folder,"expression/rna_expr.hdf5"), name = "expr_logcounts")
 colnames(link_rna_expr) <- cells
 rownames(link_rna_expr) <- genes
 
 # Load pseudobulk SingleCellExperiment object
 # sce.pseudobulk <- readRDS(file.path(data_folder,"SingleCellExperiment_pseudobulk_class_celltype_dataset.rds"))
-sce.pseudobulk <- readRDS(file.path(data_folder,"SingleCellExperiment_shiny.rds"))
+sce.pseudobulk <- readRDS(file.path(data_folder,"expression/SingleCellExperiment_pseudobulk.rds"))
 celltypes_pseudobulk <- celltypes[celltypes%in%unique(sce.pseudobulk$celltype)]
 
 #####################
@@ -73,7 +73,7 @@ net.paga %v% "y" = coordinates.mtx[,2]
 ## Load differential RNA expression ##
 ######################################
 
-diff_pseudobulk.dt <- fread(file.path(data_folder,"diff_pseudobulk.txt.gz")) %>% .[celltype%in%celltypes_pseudobulk]
+diff_pseudobulk.dt <- fread(file.path(data_folder,"differential/diff_pseudobulk.txt.gz")) %>% .[celltype%in%celltypes_pseudobulk]
 
 ###################################
 ## Load dimensionality reduction ##
@@ -88,4 +88,4 @@ umap_list <- classes %>% map(function(i) {
 ## Load reference UMAP ##
 #########################
 
-# umap_reference.dt <- fread(paste0(data_folder,"/mapping/umap_coordinates.txt.gz"))
+umap_reference.dt <- fread(paste0(data_folder,"/mapping/umap_coordinates.txt.gz"))

@@ -1,14 +1,4 @@
 
-#####################
-## Define settings ##
-#####################
-
-if (Sys.info()[['nodename']]=="BI2404M") {
-  data_folder <- "/Users/argelagr/shiny_dnmt/data"
-} else if (Sys.info()[['nodename']]=="Ricards-MacBook-Pro.local") {
-  data_folder <- "/Users/rargelaguet/shiny_dnmt/data"
-}
-
 # for testing
 # shiny::loadSupport()
 # source("load_data.R")
@@ -77,7 +67,7 @@ server <- function(input, output, session) {
         scale_fill_manual(values=class_colors) +
         scale_color_manual(values=class_colors) +
         guides(x = guide_axis(angle = 90)) +
-        labs(x="", y="") +
+        labs(x="", y=lab) +
         theme_classic() +
         theme(
           legend.title = element_blank(),
@@ -519,8 +509,8 @@ server <- function(input, output, session) {
         # guides(fill=guide_legend(ncol=1))
         guides(fill=guide_legend(ncol=1)) +
         theme(
-          legend.position = "right",
-          legend.key.size = unit(0.50, "cm"),
+          legend.position = "none",
+          # legend.key.size = unit(0.50, "cm"),
           # strip.background = element_blank(),
           # strip.text = element_text(color="black", size=rel(0.9)),
           axis.title.x = element_text(color="black", size=rel(0.75)),

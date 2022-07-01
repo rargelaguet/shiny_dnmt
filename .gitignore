@@ -31,3 +31,4 @@
 data/
 old/
 *.Rproj.user
+.Rproj.user

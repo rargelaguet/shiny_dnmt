@@ -1,14 +1,3 @@
-
-#####################
-## Define settings ##
-#####################
-
-if (Sys.info()[['nodename']]=="BI2404M") {
-  data_folder <- "/Users/argelagr/shiny_dnmt/data"
-} else if (Sys.info()[['nodename']]=="Ricards-MacBook-Pro.local") {
-  data_folder <- "/Users/rargelaguet/shiny_dnmt/data"
-}
-
 # for testing
 # shiny::loadSupport()
 

@@ -1,3 +1,13 @@
+############################################
+## Define computer (for testing purposes) ##
+############################################
+
+if (Sys.info()[['nodename']]=="BI2404M") {
+  data_folder <- "/Users/argelagr/shiny_dnmt/data"
+} else if (Sys.info()[['nodename']]=="rargelaguet.local") {
+  data_folder <- "/Users/rargelaguet/shiny_dnmt/data"
+}
+
 ###############
 ## libraries ##
 ###############
@@ -21,6 +31,14 @@ library(ggrepel)
 library(ggplot2)
 require(patchwork)
 require(ggpubr) # to do: remove this dependency?
+
+# graph viz
+# require(visNetwork)
+# library(sna)
+library(network)
+library(ggraph)
+library(igraph)
+library(tidygraph)
 
 ######################
 ## Global variables ##
