@@ -5,7 +5,8 @@
 if (Sys.info()[['nodename']]=="BI2404M") {
   data_folder <- "/Users/argelagr/shiny_dnmt/data"
 } else if (Sys.info()[['nodename']]=="rargelaguet.local") {
-  data_folder <- "/Users/rargelaguet/shiny_dnmt/data"
+  # data_folder <- "/Users/rargelaguet/shiny_dnmt/data"
+  data_folder <- "/Users/rargelaguet/data/10x_gastrulation_DNMTs/shiny"
 }
 
 ###############
@@ -56,7 +57,7 @@ celltypes <- c(
   "Primitive_Streak",
   "Caudal_epiblast",
   "PGC",
-  "Anterior_Primitive_Streak",
+  # "Anterior_Primitive_Streak",
   "Notochord",
   "Def._endoderm",
   "Gut",
@@ -73,11 +74,13 @@ celltypes <- c(
   "Mesenchyme",
   "Haematoendothelial_progenitors",
   "Endothelium",
-  "Blood_progenitors_1",
-  "Blood_progenitors_2",
-  "Erythroid1",
-  "Erythroid2",
-  "Erythroid3",
+  "Blood_progenitors",
+  # "Blood_progenitors_1",
+  # "Blood_progenitors_2",
+  # "Erythroid1",
+  # "Erythroid2",
+  # "Erythroid3",
+  "Erythroid",
   "NMP",
   "Rostral_neurectoderm",
   "Caudal_neurectoderm",
@@ -113,7 +116,7 @@ celltype_colours <- c(
   "Primitive_Streak" = "#DABE99",
   "Caudal_epiblast" = "#9e6762",
   "PGC" = "#FACB12",
-  "Anterior_Primitive_Streak" = "#c19f70",
+  # "Anterior_Primitive_Streak" = "#c19f70",
   "Notochord" = "#0F4A9C",
   "Def._endoderm" = "#F397C0",
   "Gut" = "#EF5A9D",
@@ -130,13 +133,13 @@ celltype_colours <- c(
   "Mesenchyme" = "#cc7818",
   "Haematoendothelial_progenitors" = "#FBBE92",
   "Endothelium" = "#ff891c",
-  # "Blood_progenitors" = "#c9a997",
-  "Blood_progenitors_1" = "#f9decf",
-  "Blood_progenitors_2" = "#c9a997",
-  # "Erythroid" = "#EF4E22",
-  "Erythroid1" = "#C72228",
-  "Erythroid2" = "#f79083",
-  "Erythroid3" = "#EF4E22",
+  "Blood_progenitors" = "#c9a997",
+  # "Blood_progenitors_1" = "#f9decf",
+  # "Blood_progenitors_2" = "#c9a997",
+  "Erythroid" = "#EF4E22",
+  # "Erythroid1" = "#C72228",
+  # "Erythroid2" = "#f79083",
+  # "Erythroid3" = "#EF4E22",
   "NMP" = "#8EC792",
   # "Neurectoderm" = "#65A83E",
   "Rostral_neurectoderm" = "#65A83E",

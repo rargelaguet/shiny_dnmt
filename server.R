@@ -28,17 +28,17 @@ server <- function(input, output, session) {
     ## END TEST ##
     
     if (input$stat_to_plot=="ncells") {
-      to.plot <- sample_metadata %>% .[,.N,by=c("class","dataset")]
+      to.plot <- cell_metadata.dt %>% .[,.N,by=c("class","dataset")]
       lab <- "Number of cells"
       plot_type <- "barplot"
     } else if (input$stat_to_plot=="nembryos") {
-      to.plot <- sample_metadata %>% 
+      to.plot <- cell_metadata.dt %>% 
         .[,.(N=length(unique(sample))), by=c("class","dataset")] %>%
         .[,N:=factor(N, levels=1:max(N))]
       lab <- "Number of embryos"
       plot_type <- "barplot"
     } else if (input$stat_to_plot=="ngenes") {
-      to.plot <- sample_metadata[,c("sample","class","dataset","nFeature_RNA")] %>% 
+      to.plot <- cell_metadata.dt[,c("sample","class","dataset","nFeature_RNA")] %>% 
         setnames("nFeature_RNA","value")
       lab <- "Number of genes"
       plot_type <- "boxplot"
@@ -89,6 +89,116 @@ server <- function(input, output, session) {
     plot_dataset_stats()
   })
   
+  
+  #############
+  ## Mapping ##
+  #############
+  
+  plot_mapping <- reactive({
+    
+    ## START TEST ##
+    # input <- list()
+    # input$mapping_sample <- "WT_1"
+    # input$mapping_subset_cells <- TRUE
+    ## END TEST ##
+    
+    # Fetch data    
+    cell_metadata_sample.dt <- cell_metadata.dt[sample==input$mapping_sample] %>% 
+      .[,celltype:=stringr::str_replace_all(celltype,c("/"=" ","-"=" ","_"=" "))]
+    
+    # Define dot size  
+    size.values <- c(0.30, 0.30)
+    names(size.values) <- c(input$mapping_sample, "Atlas")
+    
+    # Define dot alpha  
+    alpha.values <- c(0.70, 0.70)
+    names(alpha.values) <- c(input$mapping_sample, "Atlas")
+    
+    # Define dot colours  
+    colour.values <- c("red", "lightgrey")
+    names(colour.values) <- c(input$mapping_sample, "Atlas")
+    
+    # Subset atlas for faster plotting
+    if (input$mapping_subset_cells) {
+      umap_reference_subset.dt <- rbind(
+        umap_reference.dt[cell%in%unique(cell_metadata_sample.dt$closest.cell)],
+        umap_reference.dt[!cell%in%unique(cell_metadata_sample.dt$closest.cell),.SD[sample.int(n=.N, size=1e4)]]
+      )
+    } else {
+      umap_reference_subset.dt <- rbind(
+        umap_reference.dt[cell%in%unique(cell_metadata_sample.dt$closest.cell)],
+        umap_reference.dt[!cell%in%unique(cell_metadata_sample.dt$closest.cell),.SD[sample.int(n=.N, size=5e4)]]
+      )
+    }
+    
+    to.plot <- umap_reference_subset.dt %>% 
+      .[,index:=match(cell, cell_metadata_sample.dt$closest.cell)] %>% 
+      .[,mapped:=as.factor(!is.na(index))] %>% 
+      .[,mapped:=plyr::mapvalues(mapped, from = c("FALSE","TRUE"), to = c("Atlas",input$mapping_sample))] %>%
+      setorder(mapped) 
+    
+    # p <- plot.dimred(to.plot, query.label = i, atlas.label = "Atlas", rasterise = TRUE, subset = TRUE, legend = FALSE)
+    
+    p.mapping <- ggplot(to.plot, aes(x=V1, y=V2)) +
+      geom_point_interactive(aes(size=mapped, alpha=mapped, colour=mapped, tooltip=celltype, data_id=celltype)) +
+      scale_size_manual(values = size.values) +
+      scale_alpha_manual(values = alpha.values) +
+      scale_colour_manual(values = colour.values) +
+      guides(colour = guide_legend(override.aes = list(size=6))) +
+      theme_classic() +
+      ggplot_theme_NoAxes() +
+      theme(
+        legend.position = "top",
+        legend.title = element_blank()
+      )
+    
+    # Plot celltype proportions
+    celltype_proportions.dt <- cell_metadata_sample.dt %>%
+      .[,N:=.N,by="sample"] %>%
+      .[,.(N=.N, celltype_proportion=.N/unique(N)),by=c("sample","celltype")]
+    
+    # tmp <- celltype_colours[names(celltype_colours) %in% unique(celltype_proportions.dt$celltype)]
+    tmp <- celltype_colours; names(tmp) <- stringr::str_replace_all(names(tmp),c("/"=" ","-"=" ","_"=" "))
+    # stopifnot(unique(cell_metadata_sample.dt$celltype)%in%names(tmp))
+    # unique(cell_metadata_sample.dt$celltype)[!unique(cell_metadata_sample.dt$celltype)%in%names(tmp)]
+    celltype_proportions.dt[,celltype:=factor(celltype, levels=rev(names(tmp)))]
+    
+    p.celltype_proportions <- ggplot(celltype_proportions.dt, aes(x=celltype, y=N)) +
+      geom_bar_interactive(aes(tooltip=celltype, data_id=celltype, fill=celltype), stat="identity", color="black") +
+      scale_fill_manual(values=tmp, drop=FALSE) +
+      scale_x_discrete(drop=FALSE) +
+      coord_flip() +
+      labs(y="Number of cells") +
+      theme_bw() +
+      theme(
+        legend.position = "none",
+        strip.background = element_blank(),
+        strip.text = element_text(color="black", size=rel(0.9)),
+        axis.title.x = element_text(color="black", size=rel(0.9)),
+        axis.title.y = element_blank(),
+        axis.text.y = element_text(size=rel(0.9), color="black"),
+        axis.text.x = element_text(size=rel(1), color="black")
+      )
+    
+    girafe(
+      code = print(p.mapping+p.celltype_proportions + plot_layout(nrow=1)),
+      width_svg = 10, height_svg = 6,
+      options = list(
+        # opts_zoom(min = 1, max = 3),
+        # opts_sizing(rescale = FALSE),
+        opts_selection(type = "single", css = ""),
+        opts_hover(css = "cursor:pointer;fill:magenta;stroke:magenta;color:magenta;fill-opacity:1")
+      )
+    ) %>% return(.)
+    
+    
+  })
+  
+  output$mapping_plot = renderGirafe({
+    shiny::validate(need(input$mapping_sample%in%samples,""))
+    plot_mapping()
+  })
+  
   ##########
   ## UMAP ##
   ##########
@@ -103,9 +213,9 @@ server <- function(input, output, session) {
     
     ## Fetch data ##
     
-    # Select UMAP
-    umap.dt <- umap_list[[input$class]]
-    to.plot <- umap.dt %>% merge(sample_metadata[,c("cell","celltype","dataset","sample","stage")], by=c("cell"))
+    # Load UMAP
+    umap.dt <- fread(file.path(data_folder,sprintf("/dimensionality_reduction/%s/umap.txt.gz",input$class)))
+    to.plot <- umap.dt %>% merge(cell_metadata.dt[,c("cell","celltype","dataset","sample","stage")], by=c("cell"))
     
     # define color variable
     if (input$colourby == "gene_expression") {
@@ -341,65 +451,178 @@ server <- function(input, output, session) {
   })
     
     
-  ############################################
-  ## Differential expression: volcano plots ##
-  ############################################
+  #############################
+  ## Differential expression ##
+  #############################
   
   
-  plot_diff_expr_volcano <- reactive({
-  
-    ## START TEST ##
-    # input <- list()
-    # input$classA_diff_expr_volcano <- "Dnmt1_KO"
-    # input$classB_diff_expr_volcano <- "WT"
-    # input$celltypes_diff_expr_volcano <- c("NMP","Spinal_cord")
-    ## END TEST ##
-    
-    to.plot <- input$celltypes_diff_expr_volcano %>% map(function(i) {
-      fread(file.path(basedir,sprintf("differential/Dnmt1_KO/%s_%s_vs_%s.txt.gz",i,input$classB_diff_expr_volcano,input$classA_diff_expr_volcano))) %>%
-        .[,celltype:=i]
-    }) %>% rbindlist %>% .[!is.na(logFC)]
-    
-    to.plot %>% .[, sig := (padj_fdr<=0.01 & abs(logFC)>=1)]    
-
-    # top_genes <- 15
-    
-    # negative_hits <- to.plot[sig==TRUE & logFC<0,gene]
-    # positive_hits <- to.plot[sig==TRUE & logFC>0,gene]
-    # all <- nrow(to.plot)
-  
-    xlim <- max(abs(to.plot$logFC), na.rm=T)
-    ylim <- max(-log10(to.plot$padj_fdr+1e-100), na.rm=T)
-  
-    p <- ggplot(to.plot, aes(x=logFC, y=-log10(padj_fdr+1e-100))) +
-      labs(x="Log fold change", y=expression(paste("-log"[10],"(p.value)"))) +
-      # geom_hline(yintercept = -log10(opts$threshold_fdr), color="blue") +
-      geom_segment(aes(x=0, xend=0, y=0, yend=ylim-1), color="orange", size=0.5) +
-      ggrastr::geom_point_rast(aes(color=sig, size=sig)) +
-      scale_color_manual(values=c("black","red")) +
-      scale_size_manual(values=c(0.75,1.25)) +
-      # scale_x_continuous(limits=c(-xlim-1.5,xlim+1.5)) +
-      # scale_y_continuous(limits=c(0,ylim+15)) +
-      # annotate("text", x=0, y=ylim+14, size=4, label=sprintf("(%d)", all)) +
-      # annotate("text", x=-xlim-0.5, y=ylim+14, size=4, label=sprintf("%d (-)",length(negative_hits))) +
-      # annotate("text", x=xlim+0.5, y=ylim+14, size=4, label=sprintf("%d (+)",length(positive_hits))) +
-      # annotate("text", x=-xlim, y=0, size=3, label=sprintf("Up in %s (N=%s)",groupA,to.plot[["groupA_N"]][[1]])) +
-      # annotate("text", x=xlim, y=0, size=3, label=sprintf("Up in %s (N=%s)",groupB,to.plot[["groupB_N"]][[1]])) +
-      # ggrepel::geom_text_repel(data=head(to.plot[sig==T],n=top_genes), aes(x=logFC, y=-log10(padj_fdr+1e-100), label=gene), size=3, max.overlaps = Inf) +
-      facet_wrap(~celltype) +
-      theme_classic() +
-      theme(
-        strip.background = element_blank(),
-        axis.text = element_text(size=rel(0.75), color='black'),
-        axis.title = element_text(size=rel(1.0), color='black'),
-        legend.position="none"
-      )
-    return(p)
+  # Update feature upon click
+  observeEvent(input$diff_plot_selected, {
+    updateSelectizeInput(session = session, inputId = 'diff_feature', choices = genes, server = TRUE, selected = input$diff_plot_selected)
   })
   
-  output$plot_diff_volcano = renderPlot({
-    # shiny::validate(need(input$gene_umap_rna%in%genes, "" ))
-    plot_diff_expr_volcano()
+  plot_differential <- reactive({
+    
+    ## START TEST ##
+    # input <- list()
+    # input$diff_volcano_class <- "Dnmt1_KO"
+    # input$diff_celltype <- "Gut"
+    # input$diff_gene <- "Foxa2"
+    # input$diff_resolution <- "Cells"
+    # input$diff_range <- c(-8,8)
+    # input$diff_min_log_pval <- 25
+    ## END TEST ##
+    
+    ## Volcano ##
+    
+    # Fetch data
+    if (input$diff_resolution=="Cells") {
+      diff.dt <- fread(file.path(data_folder,sprintf("differential/cells/%s/%s_WT_vs_%s.txt.gz",input$diff_volcano_class,input$diff_celltype,input$diff_volcano_class))) %>%
+        .[,c("groupA_N","groupB_N"):=NULL]
+    } else if (input$diff_resolution=="Pseudobulk") {
+      stop("Not implemented")
+      # diff.dt <- fread(file.path(data_folder,sprintf("differential/pseudobulk/%s/%s_WT_vs_%s.txt.gz",input$diff_volcano_class,input$diff_celltype,input$diff_volcano_class)))
+    }
+    # diff.dt <- diff.dt[gene%in%genes]
+    
+    if (!input$diff_gene%in%diff.dt$gene) {
+      diff.dt <- rbind(diff.dt, data.table(gene=input$diff_gene, logFC=0, padj_fdr=1))
+    }
+    
+    to.plot <- diff.dt %>% 
+      .[logFC>=input$diff_range[1] & logFC<=input$diff_range[2]] %>% 
+      .[is.na(logFC),logFC:=0] %>%
+      .[is.na(padj_fdr),padj_fdr:=1] %>%
+      .[,log_pval:=-log10(padj_fdr+1e-150)]
+    
+    
+    # xlim_min <- min(to.plot$logFC); xlim_max <- max(to.plot$logFC)
+    xlim_min <- -8; xlim_max <- 8; margin_text <- 2; margin_dots <- 0.15
+    to.plot[logFC<=xlim_min,logFC:=xlim_min]; to.plot[logFC>=xlim_max,logFC:=xlim_max]
+    
+    # negative_hits <- to.plot[sig==TRUE & r<0 & r>input$rna_vs_chromvar_cor_range[1],gene]
+    # positive_hits <- to.plot[sig==TRUE & r>0 & r<input$rna_vs_chromvar_cor_range[2],gene]
+    
+    # to.plot.subset <- rbind(
+    #   to.plot[log_pval>=10],
+    #   to.plot[log_pval<=10][sample.int(.N,5e3)]
+    # )
+    to.plot.subset <- to.plot[log_pval>=input$diff_min_log_pval]
+    if (!input$diff_gene%in%to.plot.subset$gene) {
+      to.plot.subset <- rbind(to.plot.subset,to.plot[gene==input$diff_gene])
+    }
+    
+    ylim_min <- min(to.plot.subset$log_pval,na.rm=T); ylim_max <- max(to.plot$log_pval,na.rm=T)
+    
+    p.volcano <- ggplot(to.plot.subset, aes(x=logFC, y=log_pval)) +
+      geom_segment(x=0, xend=0, y=input$diff_min_log_pval, yend=ylim_max, color="orange", size=0.25) +
+      geom_jitter_interactive(aes(fill=log_pval, tooltip=gene, data_id=gene, alpha=log_pval, size=log_pval, onclick=gene), width=0.03, height=0.03, shape=21) + 
+      geom_point_interactive(aes(tooltip=gene, data_id=gene, onclick=gene), size=7, fill="green", shape=21, data=to.plot.subset[gene==input$diff_gene]) + 
+      geom_hline(yintercept=input$diff_min_log_pval, linetype="dashed") +
+      ggrepel::geom_text_repel(aes(label=gene), size=5, data=to.plot[gene==input$diff_gene]) +
+      scale_fill_gradient(low = "gray80", high = "red") +
+      scale_alpha_continuous(range=c(0.25,1)) +
+      scale_size_continuous(range=c(0.15,3.5)) +
+      scale_x_continuous(limits=c(xlim_min-margin_dots,xlim_max+margin_dots)) +
+      scale_y_continuous(limits=c(ylim_min,ylim_max+3)) +
+      annotate("text", x=0, y=ylim_max+3, size=5, label=sprintf("(%d)", nrow(to.plot.subset))) +
+      # coord_cartesian(xlim=c(xlim_min,xlim_max)) +
+      # annotate("text", x=xlim_min-0.05, y=ylim_max+2, size=4, label=sprintf("%d (-)",length(negative_hits))) +
+      # annotate("text", x=xlim_max+0.05, y=ylim_max+2, size=4, label=sprintf("%d (+)",length(positive_hits))) +
+      annotate("text", x=xlim_min+margin_text, y=1, size=5, label=sprintf("Higher in %s",input$diff_celltypeA)) +
+      annotate("text", x=xlim_max-margin_text, y=1, size=5, label=sprintf("Higher in %s",input$diff_celltypeB)) +
+      labs(x=ifelse(input$diff_modality=="RNA","Differential expression","Differential accessibility"), y=expression(paste("-log"[10],"(p.value)"))) +
+      theme_classic() +
+      theme(
+        axis.text = element_text(size=rel(1.25), color='black'),
+        axis.title = element_text(size=rel(1.25), color='black'),
+        legend.position="none"
+      )
+    
+    ## Plot expression/accessibility values ##
+    
+    # Fetch data
+    stop()
+    if (input$diff_resolution=="Cells") {
+      expr.dt <- data.table(
+        # cell = 
+        expr = as.numeric(rna_expr_cells.array[input$diff_gene,])
+        # celltype = cell_metadata.dt[colnames(rna_expr_cells.array),celltype]
+      )
+    } else if (input$diff_resolution=="Pseudobulk") {
+      expr.dt <- data.table(
+        expr = as.numeric(rna_expr_pseudobulk_replicates.mtx[input$diff_gene,]),
+        sample = colnames(rna_expr_pseudobulk_replicates.mtx)
+      ) %>% .[,celltype:=strsplit(sample,"-") %>% map_chr(1)]
+    }
+    
+    expr.dt <- expr.dt %>% 
+      .[celltype%in%c(input$diff_celltypeA,input$diff_celltypeB)] %>% 
+      .[,celltype:=factor(celltype,levels=c(input$diff_celltypeA,input$diff_celltypeB))]
+    
+    
+    if (input$diff_resolution=="Cells") {
+      
+      p.expr <- ggplot(expr.dt, aes(x=celltype, y=expr, fill=celltype)) +
+        geom_jitter(size=2, width=0.05, alpha=0.5, shape=21) +
+        geom_violin(scale="width", alpha=0.40) +
+        geom_boxplot(width=0.5, outlier.shape=NA, alpha=0.70) +
+        stat_summary(fun.data = function(x) { return(c(y = max(expr.dt$expr)+0.5, label = length(x)))}, geom = "text", size=5) +
+        scale_fill_manual(values=celltype_colours[c(input$diff_celltypeA,input$diff_celltypeB)]) +
+        labs(x="", y=sprintf("%s expression",input$diff_gene), title=input$diff_gene) +
+        theme_classic() +
+        theme(
+          plot.title = element_text(hjust=0.5, size=rel(1.25)),
+          axis.text.x = element_text(colour="black",size=rel(1.25)),
+          axis.text.y = element_text(colour="black",size=rel(1.25)),
+          axis.title.y = element_text(colour="black",size=rel(1.25)),
+          axis.ticks.x = element_blank(),
+          legend.position = "none"
+        )
+      
+    } else if (input$diff_resolution=="Pseudobulk") {
+      
+      tmp <- expr.dt[,.(expr=mean(expr), sd=sd(expr)), by="celltype"]
+      
+      p.expr <- ggplot(expr.dt, aes(x=celltype, y=expr, fill=celltype)) +
+        geom_bar(stat="identity", color="black", alpha=0.9, data=tmp) +
+        geom_jitter(size=2.5, alpha=0.9, width=0.08, shape=21) +
+        geom_errorbar(aes(ymin=expr-sd, ymax=expr+sd), width=0.25, alpha=1, size=0.6, data=tmp) +
+        stat_summary(fun.data = function(x) { return(c(y = max(expr.dt$expr)+0.5, label = length(x)))}, geom = "text", size=5) +
+        scale_fill_manual(values=celltype_colours[c(input$diff_celltypeA,input$diff_celltypeB)]) +
+        labs(x="",y=sprintf("%s expression",input$diff_gene), title=input$diff_gene) +
+        theme_classic() +
+        theme(
+          plot.title = element_text(hjust=0.5, size=rel(1.25)),
+          axis.text.x = element_text(colour="black",size=rel(1.25)),
+          axis.text.y = element_text(colour="black",size=rel(1.25)),
+          axis.title.y = element_text(colour="black",size=rel(1.25)),
+          axis.ticks.x = element_blank(),
+          legend.position = "none"
+        )
+    }
+    
+    # girafe call
+    girafe(
+      code = print(p.volcano + p.expr + plot_layout(ncol=2, widths=c(2,1))),
+      width_svg = 14, height_svg = 9,
+      options = list(
+        opts_zoom(min = 1, max = 5),
+        opts_sizing(rescale = TRUE),
+        opts_selection(type = "single", css = ""),
+        opts_hover(css = "cursor:pointer")
+      )
+    ) %>% return(.)
+    
+  })
+  
+  output$diff_plot <- renderGirafe({
+    shiny::validate(need(input$diff_celltypeA%in%celltypes,"Please select celltype A"))
+    shiny::validate(need(input$diff_celltypeB%in%celltypes,"Please select celltype B"))
+    shiny::validate(need(input$diff_celltypeA!=input$diff_celltypeB,"Celltype A and B must be different"))
+    shiny::validate(need(input$diff_resolution%in%c("Cells","Pseudobulk"),"Please select data resolution (cell, pseudobulk)"))
+    shiny::validate(need(input$diff_feature%in%genes,"Please select a gene from our annotation"))
+    plot_differential()
   })
   
 
@@ -475,7 +698,7 @@ server <- function(input, output, session) {
     # input$remove_extraembryonic <- FALSE
     ## END TEST ##
     
-    to.plot <- sample_metadata %>% 
+    to.plot <- cell_metadata.dt %>% 
       .[class==input$class_celltype_proportions & dataset%in%input$dataset_celltype_proportions] 
     
     # remove ExE cells
@@ -573,29 +796,29 @@ server <- function(input, output, session) {
     # remove small embryos
     # if (opts$remove.small.embryos) {
     #   opts$min.cells <- 1500
-    #   sample_metadata <- sample_metadata %>%
+    #   cell_metadata.dt <- cell_metadata.dt %>%
     #     .[,N:=.N,by="sample"] %>% .[N>opts$min.cells] %>% .[,N:=NULL]
     # }
     
     # Select KO samples    
-    sample_metadata_filt <- sample_metadata[dataset%in%input$dataset_celltype_comparisons]
+    cell_metadata_filt.dt <- cell_metadata.dt[dataset%in%input$dataset_celltype_comparisons]
     
     if (input$remove_extraembryonic_celltype_comparisons) {
-      sample_metadata_filt <- sample_metadata_filt[!celltype%in%c("Visceral_endoderm","ExE_endoderm","ExE_ectoderm","Parietal_endoderm")]
+      cell_metadata_filt.dt <- cell_metadata_filt.dt[!celltype%in%c("Visceral_endoderm","ExE_endoderm","ExE_ectoderm","Parietal_endoderm")]
     }
     
     # calculate celltype proportions for WT samples
-    wt_proportions.dt <- sample_metadata_filt %>%
+    wt_proportions.dt <- cell_metadata_filt.dt %>%
       .[class=="WT"] %>%
       .[,ncells:=.N] %>%
       .[,.(proportion=.N/unique(ncells), N=round(.N/length(unique(sample)))), by="celltype"]
     
     # calculate celltype proportions for KO samples
-    ko_proportions_per_sample.dt <- sample_metadata_filt %>%
+    ko_proportions_per_sample.dt <- cell_metadata_filt.dt %>%
       .[class%in%input$class_celltype_comparisons] %>%
       setkey(celltype,sample) %>%
       .[CJ(celltype,sample, unique = TRUE), .N, by = .EACHI] %>%
-      merge(unique(sample_metadata_filt[,c("sample","class")]), by="sample") %>%
+      merge(unique(cell_metadata_filt.dt[,c("sample","class")]), by="sample") %>%
       .[,ncells:=sum(N), by="sample"] %>% .[,proportion:=(N+1)/ncells]
     
     # Calculate difference in celltype proportions between KO and WT
@@ -614,7 +837,7 @@ server <- function(input, output, session) {
     
     to.plot <- proportions_per_sample.dt %>%
       .[celltype%in%celltypes.to.plot] %>%
-      merge(unique(sample_metadata_filt[,c("sample","dataset")]),by="sample")
+      merge(unique(cell_metadata_filt.dt[,c("sample","dataset")]),by="sample")
     
     # Define cell type order
     # if (length(input$class_celltype_comparisons))>=

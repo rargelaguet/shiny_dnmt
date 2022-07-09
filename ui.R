@@ -36,6 +36,22 @@ ui <- shinyUI(fluidPage(
       )
     ),
     
+    #############
+    ## Mapping ##
+    #############
+    
+    tabPanel(
+      title = "Mapping", id = "mapping",
+      sidebarPanel(width=3, 
+                   selectizeInput("mapping_sample", "Select sample", choices = samples, selected = "WT_1"),
+                   checkboxInput("mapping_subset_cells", "Subset atlas cells", value=TRUE)
+                   # selectInput("mapping_sample", "Select sample", choices = samples, selected = samples, multiple = TRUE),
+      ),
+      mainPanel(
+        girafeOutput("mapping_plot", width = "1000px", height = "600px")
+      )
+    ),
+    
     tabPanel(
       title = "UMAP", id = "umap",
       sidebarPanel(width=3,
@@ -70,11 +86,14 @@ ui <- shinyUI(fluidPage(
     ),
 
     tabPanel(
-      title = "Diff. expr (volcano plots)", id = "diff_expr_volcano",
+      title = "Diff. expr (volcano plots)", id = "diff_volcano",
       sidebarPanel(width=3,
-                   selectInput(inputId = "classA_diff_expr_volcano", label = "Select class A", choices = classes[classes!="WT"], selected = "Dnmt1_KO"),
-                   selectInput(inputId = "classB_diff_expr_volcano", label = "Select class B", choices = "WT", selected = "WT"),
-                   selectInput("celltypes_diff_expr_volcano", "Celltypes", choices = celltypes, selected = "NMP", multiple = TRUE)
+                   selectInput(inputId = "diff_volcano_class", label = "Select class", choices = classes[classes!="WT"], selected = "Dnmt1_KO"),
+                   selectInput(inputId = "diff_resolution", label = "Select resolution", choices = c("Cells","Pseudobulk"), selected = "Pseudobulk"),
+                   selectInput("diff_volcano_celltype", "Celltypes", choices = celltypes, selected = "NMP", multiple = TRUE),
+                   selectizeInput("diff_gene", "Select feature", choices = NULL),
+                   sliderInput("diff_min_log_pval", label = "Minimum log pvalue", min=0, max=100, step=1, value = 25),
+                   sliderInput("diff_range", label = "Range of differential values", min=-8, max=8, step=0.5, value = c(-8,8)),
       ),
       mainPanel(
         # HTML("A positive sign indicates that the gene is more expressed in the WT"),
@@ -82,9 +101,29 @@ ui <- shinyUI(fluidPage(
       )
     ),
     
+    tabPanel(
+      title = "Differential analysis", id = "diff",
+      sidebarPanel(width=3,
+                   selectInput(inputId = "diff_celltypeA", label = "Select celltype A", choices = celltypes, selected = "Gut"),
+                   selectInput(inputId = "diff_celltypeB", label = "Select celltype B", choices = celltypes, selected = "Neural_crest"),
+                   
+                   selectInput(inputId = "diff_modality", label = "Select data modality", choices = c("RNA","ATAC"), selected = "RNA"),
+                   conditionalPanel(
+                     condition = "input.diff_modality == 'ATAC'",
+                     selectInput("diff_atac_chr", "Select chromosome", choices = chr_mm10, selected = "chr1")
+                   ),
+
+                   # sliderInput("highlight_top_n_genes", label = "Highlight top N genes", min=0, max=100, step=1, value = 0)
+      ),
+      mainPanel(
+        girafeOutput("diff_plot", width = "900px", height = "600px"),
+        HTML("For visualisation efficiency, there is a maximum of 10,000 features to be displayed")
+      )
+    ),
+    
     
     tabPanel(
-      title = "Diff. expr (heatmap)", id = "diff_expr_heatmap_pseudoubulk",
+      title = "Diff. expr (heatmap)", id = "diff_heatmap_pseudoubulk",
       sidebarPanel(width=3,
                    selectInput("genes_diff_heatmap", "Genes", choices = genes, selected = c("T","Sox2","Foxa2","Hoxd9"), multiple = TRUE),
                    selectInput("classes_diff_heatmap", "Classes", choices = classes[classes!="WT"], selected = classes[classes!="WT"], multiple = TRUE),

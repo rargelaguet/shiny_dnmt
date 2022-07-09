@@ -13,30 +13,32 @@
 ## Load global variables ##
 ###########################
 
-# Load genes
-genes <- fread(paste0(data_folder,"/genes.txt"), header=F)[[1]]
-cells <- fread(paste0(data_folder,"/cells_rna.txt"), header=F)[[1]]
+genes <- fread(paste0(data_folder,"/rna_expression/genes.txt"), header=F)[[1]]
+cells <- fread(paste0(data_folder,"/rna_expression/rna_expr_cells.txt"), header=F)[[1]]
 
 ########################
 ## Load cell metadata ##
 ########################
 
-sample_metadata <- fread(paste0(data_folder,"/cell_metadata.txt.gz")) %>% 
-  .[,celltype := factor(celltype, levels = celltypes, ordered = TRUE)]
+cell_metadata.dt <- fread(paste0(data_folder,"/cell_metadata.txt.gz")) %>% 
+  .[,celltype := factor(celltype, levels = celltypes, ordered = TRUE)] %>%
+  setkey(cell)
 # .[,sample = factor(sample, levels = names(samples), ordered = TRUE)
+
+# unique(cell_metadata.dt$celltype)[!unique(cell_metadata.dt$celltype)%in%celltypes]
+# sum(is.na(cell_metadata.dt$celltype))
 
 #########################
 ## Load RNA expression ##
 #########################
 
 # Load gene expression matrix
-link_rna_expr = HDF5Array(file.path(data_folder,"expression/rna_expr.hdf5"), name = "expr_logcounts")
-colnames(link_rna_expr) <- cells
-rownames(link_rna_expr) <- genes
+rna_expr_cells.array = HDF5Array(file.path(data_folder,"rna_expression/rna_expr_cells.hdf5"), name = "rna_expr_logcounts")
+colnames(rna_expr_cells.array) <- cells
+rownames(rna_expr_cells.array) <- genes
 
 # Load pseudobulk SingleCellExperiment object
-# sce.pseudobulk <- readRDS(file.path(data_folder,"SingleCellExperiment_pseudobulk_class_celltype_dataset.rds"))
-sce.pseudobulk <- readRDS(file.path(data_folder,"expression/SingleCellExperiment_pseudobulk.rds"))
+sce.pseudobulk <- readRDS(file.path(data_folder,"rna_expression/SingleCellExperiment_pseudobulk.rds"))
 celltypes_pseudobulk <- celltypes[celltypes%in%unique(sce.pseudobulk$celltype)]
 
 #####################
@@ -73,7 +75,7 @@ net.paga %v% "y" = coordinates.mtx[,2]
 ## Load differential RNA expression ##
 ######################################
 
-diff_pseudobulk.dt <- fread(file.path(data_folder,"differential/diff_pseudobulk.txt.gz")) %>% .[celltype%in%celltypes_pseudobulk]
+# diff_pseudobulk.dt <- fread(file.path(data_folder,"differential/diff_pseudobulk.txt.gz")) %>% .[celltype%in%celltypes_pseudobulk]
 
 ###################################
 ## Load dimensionality reduction ##
