@@ -365,109 +365,136 @@ server <- function(input, output, session) {
   ## Gene expression (pseudobulk) ##
   ##################################
   
-  updateSelectizeInput(session = session, inputId = 'gene_pseudobulk', choices = genes, server = TRUE, selected = "T") 
+  updateSelectizeInput(session = session, inputId = 'gene_expr_gene', choices = genes, server = TRUE, selected = "T") 
   
-  # TO-DO:
-  # - fix order of classes 
-  # - fix colors
-  # - fix facet text
-  # - add option to add number of cells for each barplot
-  # - enable single-cell vs pseudobulk option
-  
-  plot_gene_expr_pseudobulk <- reactive({
+  plot_gene_expr <- reactive({
     
     ## START TEST ##
     # input <- list()
-    # input$gene_pseudobulk <- "T"
-    # input$dataset_gene_expr_pseudoubulk <- c("KO", "CRISPR")
-    # input$classes_gene_expr_pseudobulk <- classes
-    # input$celltypes_gene_expr_pseudobulk <- celltypes
+    # input$gene_expr_gene <- "T"
+    # input$gene_expr_dataset <- "CRISPR" # c("KO", "CRISPR")
+    # input$gene_expr_classes <- classes
+    # input$gene_expr_celltypes <- celltypes
+    # input$gene_expr_resolution <- "Cells"
+    # input$gene_expr_add_number_observations <- TRUE
     ## END TEST ##
     
-    sce.pseudobulk <- sce.pseudobulk[,sce.pseudobulk$class%in%input$classes_gene_expr_pseudobulk]
-    sce.pseudobulk <- sce.pseudobulk[,sce.pseudobulk$celltype%in%input$celltypes_gene_expr_pseudobulk]
-    sce.pseudobulk <- sce.pseudobulk[,sce.pseudobulk$dataset%in%input$dataset_gene_expr_pseudoubulk]
-    
-    ##############
-    ## Barplots ##
-    ##############
-    
-    to.plot <- data.table(
-      # sample = colnames(sce.pseudobulk),
-      expr = logcounts(sce.pseudobulk)[input$gene_pseudobulk,],
-      class = sce.pseudobulk$class,
-      sample = factor(sce.pseudobulk$sample, levels=names(class_colors)),
-      celltype = factor(sce.pseudobulk$celltype, levels=input$celltypes_gene_expr_pseudobulk)
-      # dataset = sce.pseudobulk$dataset
-    )
-    
-    # %>% .[,celltype:=factor(celltype,levels=celltypes)] %>% 
-      # .[,class:=factor(class,levels=opts$classes)]
-    
-    to.plot[expr==0,expr:=0.10]
-    
-    to.plot.means <- to.plot[,.(expr=mean(expr),sd=sd(expr)), by=c("class","celltype")]
-    
-    p.barplots <- ggplot(to.plot.means, aes(x=class, y=expr, fill=class)) +
-      geom_bar(stat="identity", color="black", width=0.80) +
-      geom_jitter(size=1, alpha=0.50, width=0.15, shape=21, data=to.plot) +
-      geom_errorbar(aes(ymin=expr-sd, ymax=expr+sd), width=0.25, alpha=0.75, size=0.5) +
-      facet_wrap(~celltype, scales="fixed") +
-      scale_fill_manual(values=class_colors) +
-      theme_classic() +
-      labs(x="",y=sprintf("%s expression",input$gene_pseudobulk)) +
-      guides(x = guide_axis(angle = 90)) +
-      theme(
-        strip.background = element_blank(),
-        plot.title = element_text(hjust = 0.5),
-        strip.text = element_text(size=rel(0.9)),
-        axis.text.x = element_text(colour="black",size=rel(0.9)),
-        axis.text.y = element_text(colour="black",size=rel(0.9)),
-        axis.ticks.x = element_blank(),
-        axis.title.y = element_text(colour="black",size=rel(1.0)),
-        legend.position = "none"
-        # legend.title = element_blank(),
-        # legend.text = element_text(size=rel(0.85))
-      )
-    
-    if (input$add_number_observations_pseudobulk) {
-      tmp <- max(to.plot$expr)+0.05
-      p.barplots <- p.barplots +
-        stat_summary(fun.data = function(x){ return(c(y = tmp, label = length(x))) }, geom = "text", size=2.75, data=to.plot)
+    if (input$gene_expr_resolution=="Cells") {
+      
+      to.plot <- cell_metadata.dt[celltype%in%input$gene_expr_celltypes & class%in%input$gene_expr_classes & dataset%in%input$gene_expr_dataset]
+      to.plot$expr <- as.numeric(rna_expr_cells.array[input$gene_expr_gene,to.plot$cell])
+      
+    } else if (input$gene_expr_resolution=="Pseudobulk") { 
+      
+      if (length(input$gene_expr_dataset)==2) {
+        to.plot <- sample_metadata_pseudobulk_list[["class_sample_celltype"]] %>% 
+          .[celltype%in%input$gene_expr_celltypes & class%in%input$gene_expr_classes]
+        to.plot$expr <- rna_expr_pseudobulk_list[["class_sample_celltype"]][input$gene_expr_gene,to.plot$id]
+      } else {
+        to.plot <- sample_metadata_pseudobulk_list[["class_sample_celltype_dataset"]] %>% 
+          .[dataset==input$gene_expr_dataset & celltype%in%input$gene_expr_celltypes & class%in%input$gene_expr_classes]
+        to.plot$expr <- rna_expr_pseudobulk_list[["class_sample_celltype_dataset"]][input$gene_expr_gene,to.plot$id]
+      }
     }
     
-  # p.barplots <- cowplot::plot_grid(plotlist=p_list, ncol = 2)
-  
-  return(p.barplots)
+    celltype.order <- celltypes[celltypes%in%unique(to.plot$celltype)]
+    class.order <- classes[classes%in%unique(to.plot$class)]
+    to.plot[,c("class","celltype"):=list(factor(class,levels=class.order), factor(celltype,levels=celltype.order))]
+    
+    ##########################################################
+    ## Generate barplots for pseudobulk, boxplots for cells ##
+    ##########################################################
+    
+    if (input$gene_expr_resolution=="Cells") {
+      
+      p <- ggplot(to.plot, aes(x=class, y=expr, fill=class)) +
+        # geom_jitter(size=1, width=0.05, alpha=0.5, shape=21, stroke=0.1) +
+        geom_violin(scale="width", alpha=0.40) +
+        geom_boxplot(width=0.5, outlier.shape=NA, alpha=0.70) +
+        facet_wrap(~celltype, scales="fixed") +
+        stat_summary(fun.data = function(x) { return(c(y = max(to.plot$expr)+0.5, label = length(x)))}, geom = "text", size=2) +
+        scale_fill_manual(values=class_colors[class.order]) +
+        labs(x="",y="RNA expression", title=input$gene_expr_gene) +
+        theme_classic() +
+        theme(
+          plot.title = element_text(hjust=0.5, size=rel(1.25)),
+          strip.background = element_blank(),
+          axis.text.x = element_text(colour="black",size=rel(0.85)),
+          axis.text.y = element_text(colour="black",size=rel(0.85)),
+          axis.title.y = element_text(colour="black",size=rel(1.0)),
+          axis.ticks.x = element_blank(),
+          legend.position = "none"
+        )
+      
+    } else if (input$gene_expr_resolution=="Pseudobulk") { 
+      
+      to.plot[expr==0,expr:=0.10]
+      
+      to.plot.means <- to.plot[,.(expr=mean(expr),sd=sd(expr)), by=c("celltype","class")]
+        
+      p <- ggplot(to.plot.means, aes(x=class, y=expr, fill=class)) +
+        geom_bar(stat="identity", color="black", width=0.80) +
+        geom_jitter(size=1, alpha=0.50, width=0.15, shape=21, data=to.plot) +
+        geom_errorbar(aes(ymin=expr-sd, ymax=expr+sd), width=0.25, alpha=0.75, size=0.5) +
+        facet_wrap(~celltype, scales="fixed") +
+        scale_fill_manual(values=class_colors[class.order]) +
+        theme_classic() +
+        # labs(x="",y=sprintf("%s expression",input$gene_expr_gene)) +
+        labs(x="",y="RNA expression", title=input$gene_expr_gene) +
+        guides(x = guide_axis(angle = 90)) +
+        theme(
+          strip.background = element_blank(),
+          plot.title = element_text(hjust = 0.5),
+          strip.text = element_text(size=rel(0.9)),
+          axis.text.x = element_text(colour="black",size=rel(0.9)),
+          axis.text.y = element_text(colour="black",size=rel(0.9)),
+          axis.ticks.x = element_blank(),
+          axis.title.y = element_text(colour="black",size=rel(1.0)),
+          legend.position = "none"
+        )
+      
+      if (input$gene_expr_add_number_observations) {
+        tmp <- max(to.plot$expr)+0.05
+        p <- p +
+          stat_summary(fun.data = function(x){ return(c(y = tmp, label = length(x))) }, geom = "text", size=2.75, data=to.plot)
+      }
+    }
+    
+  return(p)
 })
   
     
-  output$plot_gene_expr_pseudoubulk = renderPlot({
-    shiny::validate(need(input$gene_pseudobulk%in%genes, "" ))
-    plot_gene_expr_pseudobulk()
+  output$plot_gene_expr = renderPlot({
+    shiny::validate(need(input$gene_expr_gene%in%genes,"Please select gene"))
+    shiny::validate(need(input$gene_expr_celltypes%in%celltypes,"Please select celltype"))
+    shiny::validate(need(input$gene_expr_resolution%in%c("Cells","Pseudobulk"),"Please select data resolution"))
+    shiny::validate(need(input$gene_expr_classes%in%classes,"Please select classes"))
+    shiny::validate(need(input$gene_expr_dataset%in%c("CRISPR","KO"),"Please select data set"))
+    plot_gene_expr()
   })
     
     
-  #############################
-  ## Differential expression ##
-  #############################
+  ##########################################
+  ## Differential expression volcano plot ##
+  ##########################################
   
+  updateSelectizeInput(session = session, inputId = 'diff_gene', choices = genes, server = TRUE, selected = "Rhox5") 
   
   # Update feature upon click
   observeEvent(input$diff_plot_selected, {
-    updateSelectizeInput(session = session, inputId = 'diff_feature', choices = genes, server = TRUE, selected = input$diff_plot_selected)
+    updateSelectizeInput(session = session, inputId = 'diff_gene', choices = genes, server = TRUE, selected = input$diff_plot_selected)
   })
   
   plot_differential <- reactive({
     
     ## START TEST ##
-    input <- list()
-    input$diff_class <- "Dnmt1_KO"
-    input$diff_celltype <- "Gut"
-    input$diff_gene <- "Foxa2"
-    input$diff_resolution <- "Cells"
-    input$diff_range <- c(-8,8)
-    input$diff_min_log_pval <- 25
+    # input <- list()
+    # input$diff_class <- "Dnmt1_KO"
+    # input$diff_celltype <- "Gut"
+    # input$diff_gene <- "Foxa2"
+    # input$diff_resolution <- "Cells"
+    # input$diff_range <- c(-8,8)
+    # input$diff_min_log_pval <- 5
     ## END TEST ##
     
     ## Volcano ##
@@ -477,14 +504,16 @@ server <- function(input, output, session) {
       diff.dt <- fread(file.path(data_folder,sprintf("differential/cells/%s/%s_WT_vs_%s.txt.gz",input$diff_class,input$diff_celltype,input$diff_class))) %>%
         .[,c("groupA_N","groupB_N"):=NULL]
     } else if (input$diff_resolution=="Pseudobulk") {
-      stop("Not implemented")
-      # diff.dt <- fread(file.path(data_folder,sprintf("differential/pseudobulk/%s/%s_WT_vs_%s.txt.gz",input$diff_class,input$diff_celltype,input$diff_class)))
+      diff.dt <- fread(file.path(data_folder,sprintf("differential/pseudobulk/%s/%s_WT_vs_%s.txt.gz",input$diff_class,input$diff_celltype,input$diff_class)))
     }
     # diff.dt <- diff.dt[gene%in%genes]
     
     if (!input$diff_gene%in%diff.dt$gene) {
       diff.dt <- rbind(diff.dt, data.table(gene=input$diff_gene, logFC=0, padj_fdr=1))
     }
+    
+    xlim_min <- -5; xlim_max <- 5
+    diff.dt[logFC<=xlim_min,logFC:=xlim_min]; diff.dt[logFC>=xlim_max,logFC:=xlim_max]
     
     to.plot <- diff.dt %>% 
       .[logFC>=input$diff_range[1] & logFC<=input$diff_range[2]] %>% 
@@ -493,10 +522,11 @@ server <- function(input, output, session) {
       .[,log_pval:=-log10(padj_fdr+1e-150)]
     
     
-    # xlim_min <- min(to.plot$logFC); xlim_max <- max(to.plot$logFC)
-    xlim_min <- -8; xlim_max <- 8; margin_text <- 2; margin_dots <- 0.15
-    to.plot[logFC<=xlim_min,logFC:=xlim_min]; to.plot[logFC>=xlim_max,logFC:=xlim_max]
+    # Filter out genes
+    to.plot <- to.plot[!grepl("^[Rp|Gm]",gene)]
     
+    # xlim_min <- min(to.plot$logFC); xlim_max <- max(to.plot$logFC)
+
     # negative_hits <- to.plot[sig==TRUE & r<0 & r>input$rna_vs_chromvar_cor_range[1],gene]
     # positive_hits <- to.plot[sig==TRUE & r>0 & r<input$rna_vs_chromvar_cor_range[2],gene]
     
@@ -520,15 +550,15 @@ server <- function(input, output, session) {
       scale_fill_gradient(low = "gray80", high = "red") +
       scale_alpha_continuous(range=c(0.25,1)) +
       scale_size_continuous(range=c(0.15,3.5)) +
-      scale_x_continuous(limits=c(xlim_min-margin_dots,xlim_max+margin_dots)) +
+      scale_x_continuous(limits=c(input$diff_range[1]-0.15,input$diff_range[2]+0.15)) +
       scale_y_continuous(limits=c(ylim_min,ylim_max+3)) +
       annotate("text", x=0, y=ylim_max+3, size=5, label=sprintf("(%d)", nrow(to.plot.subset))) +
       # coord_cartesian(xlim=c(xlim_min,xlim_max)) +
       # annotate("text", x=xlim_min-0.05, y=ylim_max+2, size=4, label=sprintf("%d (-)",length(negative_hits))) +
       # annotate("text", x=xlim_max+0.05, y=ylim_max+2, size=4, label=sprintf("%d (+)",length(positive_hits))) +
-      annotate("text", x=xlim_min+margin_text, y=1, size=5, label=sprintf("Higher in %s",input$diff_celltypeA)) +
-      annotate("text", x=xlim_max-margin_text, y=1, size=5, label=sprintf("Higher in %s",input$diff_celltypeB)) +
-      labs(x=ifelse(input$diff_modality=="RNA","Differential expression","Differential accessibility"), y=expression(paste("-log"[10],"(p.value)"))) +
+      annotate("text", x=input$diff_range[1]+(input$diff_range[2]-input$diff_range[1])/10, y=input$diff_min_log_pval+5, size=5, label="Higher in WT") +
+      annotate("text", x=input$diff_range[2]-(input$diff_range[2]-input$diff_range[1])/10, y=input$diff_min_log_pval+5, size=5, label=sprintf("Higher in %s",input$diff_class)) +
+      labs(x="Differential expression (logFC)", y=expression(paste("-log"[10],"(p.value)"))) +
       theme_classic() +
       theme(
         axis.text = element_text(size=rel(1.25), color='black'),
@@ -539,34 +569,32 @@ server <- function(input, output, session) {
     ## Plot expression/accessibility values ##
     
     # Fetch data
-    stop()
     if (input$diff_resolution=="Cells") {
-      expr.dt <- data.table(
-        # cell = 
-        expr = as.numeric(rna_expr_cells.array[input$diff_gene,])
-        # celltype = cell_metadata.dt[colnames(rna_expr_cells.array),celltype]
-      )
+      expr.dt <- cell_metadata.dt[celltype==input$diff_celltype & class%in%c("WT",input$diff_class)]
+      expr.dt$expr <- as.numeric(rna_expr_cells.array[input$diff_gene,expr.dt$cell])
     } else if (input$diff_resolution=="Pseudobulk") {
-      expr.dt <- data.table(
-        expr = as.numeric(rna_expr_pseudobulk_replicates.mtx[input$diff_gene,]),
-        sample = colnames(rna_expr_pseudobulk_replicates.mtx)
-      ) %>% .[,celltype:=strsplit(sample,"-") %>% map_chr(1)]
+      # rna_expr_pseudobulk_list[["class_sample_celltype"]]
+      # sample_metadata_pseudobulk_list[["class_sample_celltype"]]
+      
+      # expr.dt <- data.table(
+      #   expr = as.numeric(rna_expr_pseudobulk_replicates.mtx[input$diff_gene,]),
+      #   sample = colnames(rna_expr_pseudobulk_replicates.mtx)
+      # ) %>% .[,celltype:=strsplit(sample,"-") %>% map_chr(1)]
+      
+    # expr.dt <- expr.dt %>% 
+    #   .[celltype%in%c(input$diff_celltypeA,input$diff_celltypeB)] %>% 
+      
     }
-    
-    expr.dt <- expr.dt %>% 
-      .[celltype%in%c(input$diff_celltypeA,input$diff_celltypeB)] %>% 
-      .[,celltype:=factor(celltype,levels=c(input$diff_celltypeA,input$diff_celltypeB))]
-    
     
     if (input$diff_resolution=="Cells") {
       
-      p.expr <- ggplot(expr.dt, aes(x=celltype, y=expr, fill=celltype)) +
-        geom_jitter(size=2, width=0.05, alpha=0.5, shape=21) +
+      p.expr <- ggplot(expr.dt, aes(x=class, y=expr, fill=class)) +
+        geom_jitter(size=1, width=0.05, alpha=0.5, shape=21, stroke=0.1) +
         geom_violin(scale="width", alpha=0.40) +
         geom_boxplot(width=0.5, outlier.shape=NA, alpha=0.70) +
         stat_summary(fun.data = function(x) { return(c(y = max(expr.dt$expr)+0.5, label = length(x)))}, geom = "text", size=5) +
-        scale_fill_manual(values=celltype_colours[c(input$diff_celltypeA,input$diff_celltypeB)]) +
-        labs(x="", y=sprintf("%s expression",input$diff_gene), title=input$diff_gene) +
+        scale_fill_manual(values=class_colors[c("WT",input$diff_class)]) +
+        labs(x="", y="RNA expression", title=input$diff_gene) +
         theme_classic() +
         theme(
           plot.title = element_text(hjust=0.5, size=rel(1.25)),
@@ -579,24 +607,24 @@ server <- function(input, output, session) {
       
     } else if (input$diff_resolution=="Pseudobulk") {
       
-      tmp <- expr.dt[,.(expr=mean(expr), sd=sd(expr)), by="celltype"]
-      
-      p.expr <- ggplot(expr.dt, aes(x=celltype, y=expr, fill=celltype)) +
-        geom_bar(stat="identity", color="black", alpha=0.9, data=tmp) +
-        geom_jitter(size=2.5, alpha=0.9, width=0.08, shape=21) +
-        geom_errorbar(aes(ymin=expr-sd, ymax=expr+sd), width=0.25, alpha=1, size=0.6, data=tmp) +
-        stat_summary(fun.data = function(x) { return(c(y = max(expr.dt$expr)+0.5, label = length(x)))}, geom = "text", size=5) +
-        scale_fill_manual(values=celltype_colours[c(input$diff_celltypeA,input$diff_celltypeB)]) +
-        labs(x="",y=sprintf("%s expression",input$diff_gene), title=input$diff_gene) +
-        theme_classic() +
-        theme(
-          plot.title = element_text(hjust=0.5, size=rel(1.25)),
-          axis.text.x = element_text(colour="black",size=rel(1.25)),
-          axis.text.y = element_text(colour="black",size=rel(1.25)),
-          axis.title.y = element_text(colour="black",size=rel(1.25)),
-          axis.ticks.x = element_blank(),
-          legend.position = "none"
-        )
+      stop("Not implemented")
+      # tmp <- expr.dt[,.(expr=mean(expr), sd=sd(expr)), by="celltype"]
+      # p.expr <- ggplot(expr.dt, aes(x=celltype, y=expr, fill=celltype)) +
+      #   geom_bar(stat="identity", color="black", alpha=0.9, data=tmp) +
+      #   geom_jitter(size=2.5, alpha=0.9, width=0.08, shape=21) +
+      #   geom_errorbar(aes(ymin=expr-sd, ymax=expr+sd), width=0.25, alpha=1, size=0.6, data=tmp) +
+      #   stat_summary(fun.data = function(x) { return(c(y = max(expr.dt$expr)+0.5, label = length(x)))}, geom = "text", size=5) +
+      #   scale_fill_manual(values=celltype_colours[c(input$diff_celltypeA,input$diff_celltypeB)]) +
+      #   labs(x="",y=sprintf("%s expression",input$diff_gene), title=input$diff_gene) +
+      #   theme_classic() +
+      #   theme(
+      #     plot.title = element_text(hjust=0.5, size=rel(1.25)),
+      #     axis.text.x = element_text(colour="black",size=rel(1.25)),
+      #     axis.text.y = element_text(colour="black",size=rel(1.25)),
+      #     axis.title.y = element_text(colour="black",size=rel(1.25)),
+      #     axis.ticks.x = element_blank(),
+      #     legend.position = "none"
+      #   )
     }
     
     # girafe call
@@ -614,15 +642,26 @@ server <- function(input, output, session) {
   })
   
   output$diff_plot <- renderGirafe({
-    shiny::validate(need(input$diff_celltypeA%in%celltypes,"Please select celltype A"))
-    shiny::validate(need(input$diff_celltypeB%in%celltypes,"Please select celltype B"))
-    shiny::validate(need(input$diff_celltypeA!=input$diff_celltypeB,"Celltype A and B must be different"))
+    shiny::validate(need(input$diff_class%in%classes,"Please select class"))
+    shiny::validate(need(input$diff_celltype%in%celltypes,"Please select celltype"))
     shiny::validate(need(input$diff_resolution%in%c("Cells","Pseudobulk"),"Please select data resolution (cell, pseudobulk)"))
-    shiny::validate(need(input$diff_feature%in%genes,"Please select a gene from our annotation"))
+    shiny::validate(need(input$diff_gene%in%genes,""))
     plot_differential()
   })
   
 
+  
+  
+  #####################################
+  ## Differential expression heatmap ##
+  #####################################
+  
+  updateSelectizeInput(session = session, inputId = 'diff_heatmap_genes', choices = genes, server = TRUE, selected = c("Hoxb9","Hoxc9","Hoxd9","Utf1","Slc7a3","Pim2","Xlr3a","Rhox9","Apoe")) 
+  
+  # Update feature upon click
+  # observeEvent(input$diff_plot_selected, {
+  #   updateSelectizeInput(session = session, inputId = 'diff_gene', choices = genes, server = TRUE, selected = input$diff_plot_selected)
+  # })
   
   plot_diff_heatmap <- reactive({
     
@@ -633,26 +672,44 @@ server <- function(input, output, session) {
     
     ## START TEST ##
     # input <- list()
-    # input$genes_diff_heatmap <- c("T","Sox2","Foxa2","Hoxd9")
-    # input$celltypes_diff_heatmap <- celltypes_pseudobulk
-    # input$classes_diff_heatmap <- classes[classes!="WT"]
+    # input$diff_heatmap_genes <- c("T","Sox2","Foxa2","Hoxd9")
+    # input$diff_heatmap_celltypes <- celltypes_pseudobulk
+    # input$diff_heatmap_classes <- classes[classes!="WT"]
     ## END TEST ##
     
-    to.plot <- expand.grid(input$celltypes_diff_heatmap, input$classes_diff_heatmap, input$genes_diff_heatmap) %>% 
+    diff.dt <- input$diff_heatmap_celltypes %>% map(function(i) {
+      input$diff_heatmap_classes %>% map(function(j) {
+        file <- file.path(data_folder,sprintf("differential/pseudobulk/%s/%s_WT_vs_%s.txt.gz",j,i,j))
+        if (file.exists(file)) {
+          fread(file) %>%
+            .[gene%in%input$diff_heatmap_genes] %>% 
+            .[,c("class","celltype"):=list(j,i)] %>%
+            return
+        }
+      }) %>% rbindlist
+    }) %>% rbindlist
+    
+    to.plot <- expand.grid(input$diff_heatmap_celltypes, input$diff_heatmap_classes, input$diff_heatmap_genes) %>% 
       as.data.table %>% setnames(c("celltype","class","gene")) %>%
-      merge(diff_pseudobulk.dt[gene%in%input$genes_diff_heatmap & celltype%in%input$celltypes_diff_heatmap & class%in%input$classes_diff_heatmap] , by=c("celltype","class","gene"), all.x=T)
+      merge(diff.dt, by=c("celltype","class","gene"), all.x=T)
     
     # define order of plotting
-    to.plot %>% .[,class:=factor(class,levels=rev(classes[classes%in%input$classes_diff_heatmap]))]
-    to.plot %>% .[,celltype:=factor(celltype,levels=celltypes[celltypes%in%input$celltypes_diff_heatmap])]
+    to.plot %>% .[,class:=factor(class,levels=rev(classes[classes%in%input$diff_heatmap_classes]))]
+    to.plot %>% .[,celltype:=factor(celltype,levels=celltypes[celltypes%in%input$diff_heatmap_celltypes])]
     
     # filter entries with lots of NAs
     to.plot <- to.plot[,foo:=mean(is.na(diff)),by=c("celltype","gene")] %>% .[foo<1] %>% .[,foo:=NULL]
     
-    p <- ggplot(to.plot, aes(x=celltype, y=class, fill=diff)) +
-      # geom_tile(color="black") +
+    if (input$diff_heatmap_split=="celltype") {
+      p <- ggplot(to.plot, aes(x=class, y=gene, fill=diff)) + facet_wrap(~celltype)
+    } else if (input$diff_heatmap_split=="gene") {
+      p <- ggplot(to.plot, aes(x=class, y=celltype, fill=diff)) + facet_wrap(~gene)
+    } else if (input$diff_heatmap_split=="class") {
+      p <- ggplot(to.plot, aes(x=celltype, y=gene, fill=diff)) + facet_wrap(~class)
+    }
+    
+    p <- p +
       geom_tile_interactive(aes(tooltip=diff), color="black") +
-      facet_wrap(~gene) +
       scale_fill_gradient2(low = "blue", mid = "white", high = "red", na.value = 'gray70' ) +
       theme_classic() +
       guides(x = guide_axis(angle = 90)) +
@@ -666,6 +723,7 @@ server <- function(input, output, session) {
         legend.title = element_blank()
       )
     
+    
     girafe(
       code = print(p),
       width_svg = 13, height_svg = 9,
@@ -677,6 +735,9 @@ server <- function(input, output, session) {
   })
   
   output$plot_diff_heatmap = renderGirafe({
+    shiny::validate(need(input$diff_heatmap_classes%in%classes,"Please select class"))
+    shiny::validate(need(input$diff_heatmap_celltypes%in%celltypes,"Please select celltype"))
+    shiny::validate(need(input$diff_heatmap_genes%in%genes,""))
     plot_diff_heatmap()
   })
   
@@ -878,4 +939,110 @@ server <- function(input, output, session) {
     plot_celltype_proportions_comparisons()
   })
 
+  #########################
+  ## Repetitive elements ##
+  #########################
+  
+  plot_repetitive <- reactive({
+    
+    ## START TEST ##
+    # input <- list()
+    # input$repetitive_elements <- repeat_classes[1:4]
+    # input$repetitive_classes <- classes[classes!="WT"]
+    # input$repetitive_celltypes <- celltypes[1:4]
+    # input$repetitive_split <- "class"
+    ## END TEST ##
+    
+    ## Plot heatmap of logFC ##
+    
+    to.plot <- expand.grid(input$repetitive_celltypes, input$repetitive_classes, input$repetitive_elements) %>% 
+      as.data.table %>% setnames(c("celltype","class","repeat_class")) %>%
+      merge(repeats_diff_expr.dt[celltype%in%input$repetitive_celltypes & class%in%input$repetitive_classes & repeat_class%in%input$repetitive_elements], by=c("celltype","class","repeat_class"), all.x=T)
+    
+    # define order of plotting
+    to.plot %>% .[,class:=factor(class,levels=input$repetitive_classes)]
+    to.plot %>% .[,repeat_class:=factor(repeat_class,levels=input$repetitive_elements)] 
+    to.plot %>% .[,celltype:=factor(celltype,levels=input$repetitive_celltypes)]
+    
+    # filter entries with lots of NAs
+    # to.plot <- to.plot[,foo:=mean(is.na(diff)),by=c("celltype","gene")] %>% .[foo<1] %>% .[,foo:=NULL]
+    
+    # if (input$repetitive_split=="celltype") {
+    #   p.heatmap <- ggplot(to.plot, aes(x=class, y=repeat_class, fill=logFC)) + facet_wrap(~celltype, ncol=1)
+    # } else if (input$repetitive_split=="repeat_class") {
+    #   p.heatmap <- ggplot(to.plot, aes(x=class, y=celltype, fill=logFC)) + facet_wrap(~repeat_class, ncol=1)
+    # } else if (input$repetitive_split=="class") {
+    #   p.heatmap <- ggplot(to.plot, aes(x=celltype, y=repeat_class, fill=logFC)) + facet_wrap(~class, ncol=1)
+    # }
+    
+    to.plot[,tooltip:=sprintf("%s\n%s\n%s\nlogFC=%s",repeat_class,class,celltype,logFC)]
+    
+    p.heatmap <- ggplot(to.plot, aes(x=class, y=celltype, fill=logFC)) + 
+      geom_tile_interactive(aes(tooltip=tooltip), color="black") +
+      scale_fill_gradient2(low = "blue", mid = "white", high = "red", na.value = 'gray70' ) +
+      facet_wrap(~repeat_class, ncol=1) +
+      theme_classic() +
+      guides(x = guide_axis(angle = 90)) +
+      theme(
+        axis.text = element_text(color="black", size=rel(0.90)),
+        axis.title = element_blank(),
+        strip.background = element_blank(),
+        strip.text = element_text(color="black", size=rel(1.25)),
+        axis.ticks = element_blank(),
+        axis.line = element_blank(),
+        legend.position = "top",
+        legend.title = element_blank()
+      )
+    
+    ## Bar plots of repeat expression ##
+    
+    to.plot <- repeats_expr.dt[celltype%in%input$repetitive_celltypes & class%in%c("WT",input$repetitive_classes) & repeat_class%in%input$repetitive_elements]
+    
+    # define order of plotting
+    to.plot %>% .[,class:=factor(class,levels=c("WT",input$repetitive_classes))]
+    to.plot %>% .[,repeat_class:=factor(repeat_class,levels=input$repetitive_elements)] 
+    to.plot %>% .[,celltype:=factor(celltype,levels=input$repetitive_celltypes)]
+    
+    to.plot.means <- to.plot[,.(expr=round(mean(expr),2),sd=sd(expr)), by=c("celltype","class","repeat_class")] %>%
+      .[,tooltip:=sprintf("%s\n%s\n%s\nexpr=%s",repeat_class,class,celltype,expr)]
+    
+
+    p.barplot <- ggplot(to.plot.means, aes(x=celltype, y=expr, fill=class)) +
+      geom_bar_interactive(aes(tooltip=tooltip), stat="identity", position="dodge", color="black", width=0.80, size=0.25) +
+      geom_point(size=1, alpha=0.50, shape=21, position = position_jitterdodge(jitter.width=0.1), data=to.plot) +
+      # geom_errorbar(aes(ymin=expr-sd, ymax=expr+sd), position=position_dodge(width=0.9), width=0.25, alpha=0.75, size=0.5) +
+      facet_wrap(~repeat_class, scales="fixed", ncol=1) +
+      scale_fill_manual(values=class_colors[c("WT",input$repetitive_classes)]) +
+      theme_classic() +
+      labs(x="",y="RNA expression") +
+      guides(x = guide_axis(angle = 90)) +
+      theme(
+        strip.background = element_blank(),
+        plot.title = element_text(hjust = 0.5),
+        strip.text = element_text(size=rel(0.9)),
+        axis.text.x = element_text(colour="black",size=rel(1.0)),
+        axis.text.y = element_text(colour="black",size=rel(0.9)),
+        axis.ticks.x = element_blank(),
+        axis.title.y = element_text(colour="black",size=rel(1.0)),
+        legend.position = "top",
+        legend.title = element_blank()
+      )
+    
+    girafe(
+      code = print(p.heatmap+p.barplot),
+      width_svg = 13, height_svg = 9,
+      options = list( 
+        opts_sizing(rescale = FALSE)
+      )
+    ) %>% return(.)
+    
+  })
+  
+  output$plot_repetitive = renderGirafe({
+    shiny::validate(need(input$repetitive_classes%in%classes,"Please select class"))
+    shiny::validate(need(input$repetitive_celltypes%in%celltypes,"Please select celltype"))
+    shiny::validate(need(input$repetitive_elements%in%repeat_classes,""))
+    plot_repetitive()
+  })
+  
 }

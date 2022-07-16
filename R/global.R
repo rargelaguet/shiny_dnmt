@@ -53,16 +53,16 @@ classes <- c(
 )
 
 celltypes <- c(
-  "Epiblast",
-  "Primitive_Streak",
+  # "Epiblast",
+  # "Primitive_Streak",
   "Caudal_epiblast",
-  "PGC",
+  # "PGC",
   # "Anterior_Primitive_Streak",
   "Notochord",
   "Def._endoderm",
   "Gut",
-  "Nascent_mesoderm",
-  "Mixed_mesoderm",
+  # "Nascent_mesoderm",
+  # "Mixed_mesoderm",
   "Intermediate_mesoderm",
   "Caudal_Mesoderm",
   "Paraxial_mesoderm",
@@ -83,15 +83,15 @@ celltypes <- c(
   "Erythroid",
   "NMP",
   "Rostral_neurectoderm",
-  "Caudal_neurectoderm",
+  # "Caudal_neurectoderm",
   "Neural_crest",
   "Forebrain_Midbrain_Hindbrain",
   "Spinal_cord",
   "Surface_ectoderm",
   "Visceral_endoderm",
   "ExE_endoderm",
-  "ExE_ectoderm",
-  "Parietal_endoderm"
+  "ExE_ectoderm"
+  # "Parietal_endoderm"
 )
 
 samples <- c("Dnmt3a_KO_1", "Dnmt3a_KO_2", "WT_1", "WT_2", "WT_3", "WT_4", 
@@ -106,6 +106,22 @@ samples <- c("Dnmt3a_KO_1", "Dnmt3a_KO_2", "WT_1", "WT_2", "WT_3", "WT_4",
              "Dnmt3b_KO_6", "Dnmt3b_KO_7", "Dnmt3b_KO_8", "Dnmt3b_KO_9", "Dnmt3b_KO_10", 
              "WT_8", "WT_9", "WT_10", "WT_11", "WT_12", "WT_13", "WT_14", 
              "WT_15", "WT_16", "WT_17")
+
+repeat_classes <- c(
+  "LINE_L1",
+  "LINE_L2",
+  "LTR_ERV1",
+  "LTR_ERVK",
+  "LTR_ERVL",
+  "LTR_MaLR",
+  "major_satellite",
+  "minor_satellite",
+  "rRNA",           
+  "SINE_Alu_B1",
+  "SINE_B2",
+  "SINE_B4",
+  "IAP"  
+)
 
 #####################
 ## Colour palettes ##

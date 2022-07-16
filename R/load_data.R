@@ -28,18 +28,34 @@ cell_metadata.dt <- fread(paste0(data_folder,"/cell_metadata.txt.gz")) %>%
 # unique(cell_metadata.dt$celltype)[!unique(cell_metadata.dt$celltype)%in%celltypes]
 # sum(is.na(cell_metadata.dt$celltype))
 
-#########################
-## Load RNA expression ##
-#########################
+#################################
+## Load RNA expression (cells) ##
+#################################
 
-# Load gene expression matrix
 rna_expr_cells.array = HDF5Array(file.path(data_folder,"rna_expression/rna_expr_cells.hdf5"), name = "rna_expr_logcounts")
 colnames(rna_expr_cells.array) <- cells
 rownames(rna_expr_cells.array) <- genes
 
-# Load pseudobulk SingleCellExperiment object
-sce.pseudobulk <- readRDS(file.path(data_folder,"rna_expression/SingleCellExperiment_pseudobulk.rds"))
-celltypes_pseudobulk <- celltypes[celltypes%in%unique(sce.pseudobulk$celltype)]
+stopifnot(cell_metadata.dt$cell==colnames(rna_expr_cells.array))
+
+######################################
+## Load RNA expression (pseudobulk) ##
+######################################
+
+sample_metadata_pseudobulk_list <- list()
+rna_expr_pseudobulk_list <- list()
+
+# load "class_sample_celltype_dataset"
+sample_metadata_pseudobulk_list[["class_sample_celltype_dataset"]] <- fread(file.path(data_folder,"rna_expression/pseudobulk/class_sample_celltype_dataset/sample_metadata.txt.gz"))
+rna_expr_pseudobulk_list[["class_sample_celltype_dataset"]] <- readRDS(file.path(data_folder,"rna_expression/pseudobulk/class_sample_celltype_dataset/rna_expr.rds"))
+
+# load "class_sample_celltype"
+sample_metadata_pseudobulk_list[["class_sample_celltype"]] <- fread(file.path(data_folder,"rna_expression/pseudobulk/class_sample_celltype/sample_metadata.txt.gz"))
+rna_expr_pseudobulk_list[["class_sample_celltype"]] <- readRDS(file.path(data_folder,"rna_expression/pseudobulk/class_sample_celltype/rna_expr.rds"))
+
+# sce.pseudobulk <- readRDS(file.path(data_folder,"rna_expression/SingleCellExperiment_pseudobulk.rds"))
+# sce.pseudobulk <- readRDS(file.path(data_folder,"rna_expression/SingleCellExperiment_pseudobulk.rds"))
+# celltypes_pseudobulk <- celltypes[celltypes%in%unique(sce.pseudobulk$celltype)]
 
 #####################
 ## Load PAGA graph ##
@@ -71,11 +87,6 @@ celltypes_pseudobulk <- celltypes[celltypes%in%unique(sce.pseudobulk$celltype)]
 # net.paga %v% "x" = coordinates.mtx[,1]
 # net.paga %v% "y" = coordinates.mtx[,2]
 
-######################################
-## Load differential RNA expression ##
-######################################
-
-# diff_pseudobulk.dt <- fread(file.path(data_folder,"differential/diff_pseudobulk.txt.gz")) %>% .[celltype%in%celltypes_pseudobulk]
 
 ###################################
 ## Load dimensionality reduction ##
@@ -91,3 +102,10 @@ umap_list <- classes %>% map(function(i) {
 #########################
 
 umap_reference.dt <- fread(paste0(data_folder,"/mapping/umap_coordinates.txt.gz"))
+
+#########################
+## Repetitive elements ##
+#########################
+
+repeats_expr.dt <- fread(file.path(data_folder,"repeats/repeats_expr.txt.gz"))
+repeats_diff_expr.dt <- fread(file.path(data_folder,"repeats/repeats_diff_expr.txt.gz"))

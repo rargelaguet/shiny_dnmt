@@ -43,14 +43,17 @@ ui <- shinyUI(fluidPage(
     tabPanel(
       title = "Mapping", id = "mapping",
       sidebarPanel(width=3, 
-                   selectizeInput("mapping_sample", "Select sample", choices = samples, selected = "WT_1"),
-                   checkboxInput("mapping_subset_cells", "Subset atlas cells", value=TRUE)
-                   # selectInput("mapping_sample", "Select sample", choices = samples, selected = samples, multiple = TRUE),
+       selectizeInput("mapping_sample", "Select sample", choices = samples, selected = "WT_1"),
+       checkboxInput("mapping_subset_cells", "Subset atlas cells", value=TRUE)
       ),
       mainPanel(
         girafeOutput("mapping_plot", width = "1000px", height = "600px")
       )
     ),
+    
+    ##########
+    ## UMAP ##
+    ##########
     
     tabPanel(
       title = "UMAP", id = "umap",
@@ -70,66 +73,67 @@ ui <- shinyUI(fluidPage(
       )
     ),
     
+    #####################
+    ## Gene expression ##
+    #####################
+    
     tabPanel(
-      title = "Gene expression", id = "gene_expr_pseudoubulk",
+      title = "Gene expression", id = "gene_expr",
       sidebarPanel(width=3, 
-        selectizeInput(inputId = "gene_pseudobulk", label = "Select gene", choices=NULL, selected="T"),
-        selectInput("classes_gene_expr_pseudobulk", "Classes", choices = classes, selected = classes, multiple = TRUE),
-        selectInput("celltypes_gene_expr_pseudobulk", "Celltypes", choices = celltypes_pseudobulk, selected = celltypes_pseudobulk, multiple = TRUE),
-        checkboxGroupInput("dataset_gene_expr_pseudoubulk", label = "Data set",  choices = list("KO" = "KO", "CRISPR (Grosswendt2020)" = "CRISPR"), selected = c("KO","CRISPR")),
-        checkboxInput("add_number_observations_pseudobulk", "Show number of pseudobulk replicates per condition", value = TRUE),
+        selectizeInput(inputId = "gene_expr_gene", label = "Select gene", choices=NULL, selected="T"),
+        selectInput("gene_expr_classes", "Classes", choices = classes, selected = classes, multiple = TRUE),
+        selectInput("gene_expr_celltypes", "Celltypes", choices = celltypes_pseudobulk, selected = celltypes_pseudobulk, multiple = TRUE),
+        checkboxGroupInput("gene_expr_dataset", label = "Data set",  choices = list("KO" = "KO", "CRISPR (Grosswendt2020)" = "CRISPR"), selected = c("KO","CRISPR")),
+        selectInput("gene_expr_resolution", "Resolution", choices = c("Cells","Pseudobulk"), selected = "Pseudobulk"),
+        checkboxInput("gene_expr_add_number_observations", "Show number of pseudobulk replicates per condition", value = TRUE)
       ),
       mainPanel(
-        plotOutput("plot_gene_expr_pseudoubulk",  width = "800px", height = "700px")
-        # girafeOutput("plot_gene_expr_pseudoubulk")
+        plotOutput("plot_gene_expr",  width = "800px", height = "700px")
+        # girafeOutput("plot_gene_expr")
       )
     ),
 
+    #############################################
+    ## Differential expression (volcano plots) ##
+    #############################################
+    
     tabPanel(
       title = "Diff. expr (volcano plots)", id = "diff_volcano",
       sidebarPanel(width=3,
-                   selectInput(inputId = "diff_volcano_class", label = "Select class", choices = classes[classes!="WT"], selected = "Dnmt1_KO"),
-                   selectInput(inputId = "diff_resolution", label = "Select resolution", choices = c("Cells","Pseudobulk"), selected = "Pseudobulk"),
-                   selectInput("diff_volcano_celltype", "Celltypes", choices = celltypes, selected = "NMP", multiple = TRUE),
-                   selectizeInput("diff_gene", "Select feature", choices = NULL),
-                   sliderInput("diff_min_log_pval", label = "Minimum log pvalue", min=0, max=100, step=1, value = 25),
-                   sliderInput("diff_range", label = "Range of differential values", min=-8, max=8, step=0.5, value = c(-8,8)),
+       selectInput(inputId = "diff_class", label = "Select class", choices = classes[classes!="WT"], selected = "Dnmt1_KO"),
+       selectInput(inputId = "diff_resolution", label = "Select resolution", choices = c("Cells"), selected = "Cells"),
+       selectInput("diff_celltype", "Celltype", choices = celltypes, selected = "NMP"),
+       selectizeInput("diff_gene", "Select gene", choices = NULL, selected = "Rhox5"),
+       sliderInput("diff_min_log_pval", label = "Minimum log pvalue", min=0, max=100, step=1, value = 5),
+       sliderInput("diff_range", label = "Range of differential values", min=-5, max=5, step=0.5, value = c(-5,5)),
       ),
       mainPanel(
-        # HTML("A positive sign indicates that the gene is more expressed in the WT"),
-        plotOutput("plot_diff_volcano")
+        girafeOutput("diff_plot", width = "900px", height = "600px")
+        # HTML("For visualisation efficiency, there is a maximum of 10,000 features to be displayed")
       )
     ),
     
-    tabPanel(
-      title = "Diff. expr (volcano)", id = "diff",
-      sidebarPanel(width=3,
-                   selectInput(inputId = "diff_celltype", label = "Select celltype", choices = celltypes, selected = "Gut"),
-                   selectInput(inputId = "diff_class", label="Class", choices = c("Dnmt1","Dnmt3a","Dnmt3b"), selected = "Dnmt1"),
-                   selectInput(inputId = "diff_resolution", label = "Resolution", choices = c("Cells","Pseudobulk"), selected = "Cells"),
-                   selectizeInput("diff_gene", "Select gene", choices = NULL),
-                   # sliderInput("highlight_top_n_genes", label = "Highlight top N genes", min=0, max=100, step=1, value = 0)
-      ),
-      mainPanel(
-        girafeOutput("diff_plot", width = "900px", height = "600px"),
-        HTML("For visualisation efficiency, there is a maximum of 10,000 features to be displayed")
-      )
-    ),
-    
+    ########################################
+    ## Differential expression (heatmaps) ##
+    ########################################
     
     tabPanel(
-      title = "Diff. expr (heatmap)", id = "diff_heatmap_pseudoubulk",
+      title = "Diff. expr (heatmap)", id = "diff_heatmap",
       sidebarPanel(width=3,
-                   selectInput("genes_diff_heatmap", "Genes", choices = genes, selected = c("T","Sox2","Foxa2","Hoxd9"), multiple = TRUE),
-                   selectInput("classes_diff_heatmap", "Classes", choices = classes[classes!="WT"], selected = classes[classes!="WT"], multiple = TRUE),
-                   selectInput("celltypes_diff_heatmap", "Celltypes", choices = celltypes_pseudobulk, selected = celltypes_pseudobulk, multiple = TRUE)
+       selectInput("diff_heatmap_genes", "Genes", choices = NULL, selected = c("Hoxb9","Hoxc9","Hoxd9","Utf1","Slc7a3","Pim2","Xlr3a","Rhox9","Apoe"), multiple = TRUE),
+       selectInput("diff_heatmap_classes", "Classes", choices = classes[classes!="WT"], selected = classes[classes!="WT"], multiple = TRUE),
+       selectInput("diff_heatmap_celltypes", "Celltypes", choices = celltypes_pseudobulk, selected = celltypes_pseudobulk, multiple = TRUE),
+       selectInput("diff_heatmap_split", "Facet by", choices = c("Celltype"="celltype", "Gene"="gene"), selected = "Gene"),
       ),
       mainPanel(
-        HTML("A positive sign indicates that the gene is more expressed in the WT"),
-        # plotOutput("plot_diff_heatmap")
+        HTML("A positive sign indicates that the gene is more expressed in the KO"),
         girafeOutput("plot_diff_heatmap")
       )
     ),
+    
+    ###########################
+    ## Cell type proportions ##
+    ###########################
     
     tabPanel(
       title = "Celltype proportions", id = "celltype_proportions",
@@ -159,7 +163,22 @@ ui <- shinyUI(fluidPage(
       )
     ),
     
+    #########################
+    ## Repetitive elements ##
+    #########################
     
+    tabPanel(
+      title = "Repetitive elements", id = "repetitive",
+      sidebarPanel(width=3,
+        selectInput("repetitive_elements", "Elements", choices = repeat_classes, selected = c("IAP","LINE_L1","LTR_ERVK"), multiple = TRUE),
+        selectInput("repetitive_classes", "Classes", choices = classes[classes!="WT"], selected = classes[classes!="WT"], multiple = TRUE),
+        selectInput("repetitive_celltypes", "Celltypes", choices = celltypes_pseudobulk[1:4], selected = celltypes_pseudobulk, multiple = TRUE)
+      ),
+      mainPanel(
+        HTML("A positive sign indicates that the repeat element is more expressed in the KO"),
+        girafeOutput("plot_repetitive")
+      )
+    ),
     
     tags$style(HTML(".navbar-header { width:100% } .navbar-brand { width: 100%; text-align: left; font-size: 150%; }"))
   )
