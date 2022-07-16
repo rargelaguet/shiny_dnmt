@@ -4,7 +4,7 @@
 
 if (Sys.info()[['nodename']]=="BI2404M") {
   data_folder <- "/Users/argelagr/shiny_dnmt/data"
-} else if (Sys.info()[['nodename']]=="rargelaguet.local") {
+} else if (grepl("rargelaguet",Sys.info()[['nodename']])) {
   # data_folder <- "/Users/rargelaguet/shiny_dnmt/data"
   data_folder <- "/Users/rargelaguet/data/10x_gastrulation_DNMTs/shiny"
 }

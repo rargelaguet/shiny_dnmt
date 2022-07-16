@@ -5,8 +5,8 @@
 ## Define global variables ##
 #############################
 
-celltypes <- fread(paste0(data_folder,"/celltypes.txt"), header=F)[[1]]
-genes <- fread(paste0(data_folder,"/genes.txt"), header=F)[[1]]
+# celltypes <- fread(paste0(data_folder,"/celltypes.txt"), header=F)[[1]]
+genes <- fread(paste0(data_folder,"/rna_expression/genes.txt"), header=F)[[1]]
 classes <- c("WT","Dnmt3a_KO","Dnmt3b_KO","Dnmt1_KO")
 celltypes_pseudobulk <- celltypes
 
@@ -60,7 +60,7 @@ ui <- shinyUI(fluidPage(
         checkboxInput("subset_cells_umap", "Subset number of cells for the UMAP", value = TRUE),
         conditionalPanel(
           condition = "input.colourby == 'gene_expression'",
-          selectizeInput("gene_umap_rna", "Select gene to show RNA expression", choices = NULL, selected = "T")
+          selectizeInput("gene_umap", "Select gene to show RNA expression", choices = NULL, selected = "T")
         )
         # checkboxInput("numbers", "Annotate clusters in plot"),
       ),
@@ -102,17 +102,12 @@ ui <- shinyUI(fluidPage(
     ),
     
     tabPanel(
-      title = "Differential analysis", id = "diff",
+      title = "Diff. expr (volcano)", id = "diff",
       sidebarPanel(width=3,
-                   selectInput(inputId = "diff_celltypeA", label = "Select celltype A", choices = celltypes, selected = "Gut"),
-                   selectInput(inputId = "diff_celltypeB", label = "Select celltype B", choices = celltypes, selected = "Neural_crest"),
-                   
-                   selectInput(inputId = "diff_modality", label = "Select data modality", choices = c("RNA","ATAC"), selected = "RNA"),
-                   conditionalPanel(
-                     condition = "input.diff_modality == 'ATAC'",
-                     selectInput("diff_atac_chr", "Select chromosome", choices = chr_mm10, selected = "chr1")
-                   ),
-
+                   selectInput(inputId = "diff_celltype", label = "Select celltype", choices = celltypes, selected = "Gut"),
+                   selectInput(inputId = "diff_class", label="Class", choices = c("Dnmt1","Dnmt3a","Dnmt3b"), selected = "Dnmt1"),
+                   selectInput(inputId = "diff_resolution", label = "Resolution", choices = c("Cells","Pseudobulk"), selected = "Cells"),
+                   selectizeInput("diff_gene", "Select gene", choices = NULL),
                    # sliderInput("highlight_top_n_genes", label = "Highlight top N genes", min=0, max=100, step=1, value = 0)
       ),
       mainPanel(

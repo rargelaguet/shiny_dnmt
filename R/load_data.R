@@ -45,31 +45,31 @@ celltypes_pseudobulk <- celltypes[celltypes%in%unique(sce.pseudobulk$celltype)]
 ## Load PAGA graph ##
 #####################
 
-# paga <- readRDS(paste0(data_folder,"/paga_network.rds"))
-
-connectivity.mtx <- fread(file.path(data_folder,"paga/paga_connectivity.csv")) %>%
-  matrix.please %>% .[celltypes,celltypes]
-
-coordinates.mtx <- fread(file.path(data_folder,"paga/paga_coordinates.csv")) %>% 
-  matrix.please %>% .[celltypes,]
-
-# Parse data
-connectivity.mtx[connectivity.mtx<0.20] <- 0
-connectivity.mtx[connectivity.mtx>=0.20] <- 1
-
-# Create igraph object
-igraph.paga <- graph_from_adjacency_matrix(connectivity.mtx, mode = "undirected")
-
-# Create tbl_graph object
-igraph.paga.tbl <- as_tbl_graph(igraph.paga) %>%
-  activate(nodes) %>%
-  mutate(celltype=rownames(connectivity.mtx)) %>%
-  mutate(x=coordinates.mtx[,1]) %>% mutate(y=coordinates.mtx[,2])
-
-# Create network object
-net.paga = network(connectivity.mtx)
-net.paga %v% "x" = coordinates.mtx[,1]
-net.paga %v% "y" = coordinates.mtx[,2]
+# # paga <- readRDS(paste0(data_folder,"/paga_network.rds"))
+# 
+# connectivity.mtx <- fread(file.path(data_folder,"paga/paga_connectivity.csv")) %>%
+#   matrix.please %>% .[celltypes,celltypes]
+# 
+# coordinates.mtx <- fread(file.path(data_folder,"paga/paga_coordinates.csv")) %>% 
+#   matrix.please %>% .[celltypes,]
+# 
+# # Parse data
+# connectivity.mtx[connectivity.mtx<0.20] <- 0
+# connectivity.mtx[connectivity.mtx>=0.20] <- 1
+# 
+# # Create igraph object
+# igraph.paga <- graph_from_adjacency_matrix(connectivity.mtx, mode = "undirected")
+# 
+# # Create tbl_graph object
+# igraph.paga.tbl <- as_tbl_graph(igraph.paga) %>%
+#   activate(nodes) %>%
+#   mutate(celltype=rownames(connectivity.mtx)) %>%
+#   mutate(x=coordinates.mtx[,1]) %>% mutate(y=coordinates.mtx[,2])
+# 
+# # Create network object
+# net.paga = network(connectivity.mtx)
+# net.paga %v% "x" = coordinates.mtx[,1]
+# net.paga %v% "y" = coordinates.mtx[,2]
 
 ######################################
 ## Load differential RNA expression ##

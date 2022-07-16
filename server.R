@@ -9,13 +9,6 @@
 
 server <- function(input, output, session) {
   
-  #######################
-  ## Selectize speedup ##
-  #######################
-  
-  updateSelectizeInput(session = session, inputId = 'gene_umap_rna', choices = genes, server = TRUE, selected = "T") 
-  updateSelectizeInput(session = session, inputId = 'gene_pseudobulk', choices = genes, server = TRUE, selected = "T") 
-
   ###################
   ## Dataset stats ##
   ###################
@@ -203,6 +196,8 @@ server <- function(input, output, session) {
   ## UMAP ##
   ##########
   
+  updateSelectizeInput(session = session, inputId = 'gene_umap', choices = genes, server = TRUE, selected = "T") 
+  
   plot_UMAP <- reactive({
     
     ## START TEST ##
@@ -221,7 +216,7 @@ server <- function(input, output, session) {
     if (input$colourby == "gene_expression") {
       tmp <- data.table(
         cell = colnames(link_rna_expr),
-        color = as.numeric(link_rna_expr[input$gene_umap_rna,])
+        color = as.numeric(link_rna_expr[input$gene_umap,])
       )
       to.plot <- to.plot %>% merge(tmp,by="cell") %>% setorder(color)
     } else {
@@ -230,21 +225,21 @@ server <- function(input, output, session) {
 
     ## Plot PAGA ##
     
-    celltypes <- sapply(paga$val,"[[","vertex.names")
-    alphas <- rep(1.0,length(celltypes)); names(alphas) <- celltypes
-    sizes <- rep(8,length(celltypes)); names(sizes) <- celltypes
-    
-    p.paga <- ggnet2_interactive(
-      net = paga,
-      mode = c("x", "y"),
-      color = celltype_colours[celltypes],
-      node.alpha = alphas,
-      node.size = sizes,    
-      edge.size = 0.15,
-      edge.color = "grey",
-      label = TRUE,
-      label.size = 3
-    )
+    # celltypes <- sapply(paga$val,"[[","vertex.names")
+    # alphas <- rep(1.0,length(celltypes)); names(alphas) <- celltypes
+    # sizes <- rep(8,length(celltypes)); names(sizes) <- celltypes
+    # 
+    # p.paga <- ggnet2_interactive(
+    #   net = paga,
+    #   mode = c("x", "y"),
+    #   color = celltype_colours[celltypes],
+    #   node.alpha = alphas,
+    #   node.size = sizes,    
+    #   edge.size = 0.15,
+    #   edge.color = "grey",
+    #   label = TRUE,
+    #   label.size = 3
+    # )
     
     ## Plot UMAP ##
     
@@ -339,15 +334,15 @@ server <- function(input, output, session) {
     }
 
     layout <- "
-    ABB
-    ABB
-    ABB
-    ABB
+    BBB
+    BBB
+    BBB
+    BBB
     CCC
     "
     girafe(
-      # code = print((p.paga+p.umap)/p2 + plot_layout(widths = c(1,10), heights=c(4,1))),
-      code = print(p.paga+p.umap+p2 + plot_layout(design = layout)),
+      # code = print(p.paga+p.umap+p2 + plot_layout(design = layout)),
+      code = print(p.umap+p2 + plot_layout(design = layout)),
       width_svg = 13, height_svg = 9,
       options = list( 
         opts_sizing(rescale = FALSE),
@@ -361,7 +356,7 @@ server <- function(input, output, session) {
   })
   
   output$umap = renderGirafe({
-    # shiny::validate(need(input$gene_umap_rna%in%genes, "" ))
+    # shiny::validate(need(input$gene_umap%in%genes, "" ))
     plot_UMAP()
   })
  
@@ -369,6 +364,8 @@ server <- function(input, output, session) {
   ##################################
   ## Gene expression (pseudobulk) ##
   ##################################
+  
+  updateSelectizeInput(session = session, inputId = 'gene_pseudobulk', choices = genes, server = TRUE, selected = "T") 
   
   # TO-DO:
   # - fix order of classes 
@@ -464,24 +461,24 @@ server <- function(input, output, session) {
   plot_differential <- reactive({
     
     ## START TEST ##
-    # input <- list()
-    # input$diff_volcano_class <- "Dnmt1_KO"
-    # input$diff_celltype <- "Gut"
-    # input$diff_gene <- "Foxa2"
-    # input$diff_resolution <- "Cells"
-    # input$diff_range <- c(-8,8)
-    # input$diff_min_log_pval <- 25
+    input <- list()
+    input$diff_class <- "Dnmt1_KO"
+    input$diff_celltype <- "Gut"
+    input$diff_gene <- "Foxa2"
+    input$diff_resolution <- "Cells"
+    input$diff_range <- c(-8,8)
+    input$diff_min_log_pval <- 25
     ## END TEST ##
     
     ## Volcano ##
     
     # Fetch data
     if (input$diff_resolution=="Cells") {
-      diff.dt <- fread(file.path(data_folder,sprintf("differential/cells/%s/%s_WT_vs_%s.txt.gz",input$diff_volcano_class,input$diff_celltype,input$diff_volcano_class))) %>%
+      diff.dt <- fread(file.path(data_folder,sprintf("differential/cells/%s/%s_WT_vs_%s.txt.gz",input$diff_class,input$diff_celltype,input$diff_class))) %>%
         .[,c("groupA_N","groupB_N"):=NULL]
     } else if (input$diff_resolution=="Pseudobulk") {
       stop("Not implemented")
-      # diff.dt <- fread(file.path(data_folder,sprintf("differential/pseudobulk/%s/%s_WT_vs_%s.txt.gz",input$diff_volcano_class,input$diff_celltype,input$diff_volcano_class)))
+      # diff.dt <- fread(file.path(data_folder,sprintf("differential/pseudobulk/%s/%s_WT_vs_%s.txt.gz",input$diff_class,input$diff_celltype,input$diff_class)))
     }
     # diff.dt <- diff.dt[gene%in%genes]
     
@@ -775,7 +772,7 @@ server <- function(input, output, session) {
   })
   
   output$plot_celltype_proportions = renderGirafe({
-    # shiny::validate(need(input$gene_umap_rna%in%genes, "" ))
+    # shiny::validate(need(input$gene_umap%in%genes, "" ))
     plot_celltype_proportions()
   })
   
