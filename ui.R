@@ -88,7 +88,7 @@ ui <- shinyUI(fluidPage(
         checkboxInput("gene_expr_add_number_observations", "Show number of pseudobulk replicates per condition", value = TRUE)
       ),
       mainPanel(
-        plotOutput("plot_gene_expr",  width = "800px", height = "700px")
+        plotOutput("plot_gene_expr",  width = "1000px", height = "700px")
         # girafeOutput("plot_gene_expr")
       )
     ),

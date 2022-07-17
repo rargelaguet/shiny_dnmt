@@ -361,9 +361,9 @@ server <- function(input, output, session) {
   })
  
 
-  ##################################
-  ## Gene expression (pseudobulk) ##
-  ##################################
+  #####################
+  ## Gene expression ##
+  #####################
   
   updateSelectizeInput(session = session, inputId = 'gene_expr_gene', choices = genes, server = TRUE, selected = "T") 
   
@@ -415,6 +415,7 @@ server <- function(input, output, session) {
         stat_summary(fun.data = function(x) { return(c(y = max(to.plot$expr)+0.5, label = length(x)))}, geom = "text", size=2) +
         scale_fill_manual(values=class_colors[class.order]) +
         labs(x="",y="RNA expression", title=input$gene_expr_gene) +
+        guides(x = guide_axis(angle = 90)) +
         theme_classic() +
         theme(
           plot.title = element_text(hjust=0.5, size=rel(1.25)),
@@ -539,11 +540,13 @@ server <- function(input, output, session) {
       to.plot.subset <- rbind(to.plot.subset,to.plot[gene==input$diff_gene])
     }
     
+    to.plot.subset[,tooltip:=sprintf("%s\nlogFC = %s\nlog_p = %s",gene,logFC,round(log_pval,2))]
+    
     ylim_min <- min(to.plot.subset$log_pval,na.rm=T); ylim_max <- max(to.plot$log_pval,na.rm=T)
     
     p.volcano <- ggplot(to.plot.subset, aes(x=logFC, y=log_pval)) +
       geom_segment(x=0, xend=0, y=input$diff_min_log_pval, yend=ylim_max, color="orange", size=0.25) +
-      geom_jitter_interactive(aes(fill=log_pval, tooltip=gene, data_id=gene, alpha=log_pval, size=log_pval, onclick=gene), width=0.03, height=0.03, shape=21) + 
+      geom_jitter_interactive(aes(fill=log_pval, tooltip=tooltip, data_id=gene, alpha=log_pval, size=log_pval, onclick=gene), width=0.03, height=0.03, shape=21) + 
       geom_point_interactive(aes(tooltip=gene, data_id=gene, onclick=gene), size=7, fill="green", shape=21, data=to.plot.subset[gene==input$diff_gene]) + 
       geom_hline(yintercept=input$diff_min_log_pval, linetype="dashed") +
       ggrepel::geom_text_repel(aes(label=gene), size=5, data=to.plot[gene==input$diff_gene]) +
@@ -592,12 +595,12 @@ server <- function(input, output, session) {
         geom_jitter(size=1, width=0.05, alpha=0.5, shape=21, stroke=0.1) +
         geom_violin(scale="width", alpha=0.40) +
         geom_boxplot(width=0.5, outlier.shape=NA, alpha=0.70) +
-        stat_summary(fun.data = function(x) { return(c(y = max(expr.dt$expr)+0.5, label = length(x)))}, geom = "text", size=5) +
+        stat_summary(fun.data = function(x) { return(c(y = max(expr.dt$expr)+0.5, label = length(x)))}, geom = "text", size=4) +
         scale_fill_manual(values=class_colors[c("WT",input$diff_class)]) +
         labs(x="", y="RNA expression", title=input$diff_gene) +
         theme_classic() +
         theme(
-          plot.title = element_text(hjust=0.5, size=rel(1.25)),
+          plot.title = element_text(hjust=0.5, size=rel(1.45)),
           axis.text.x = element_text(colour="black",size=rel(1.25)),
           axis.text.y = element_text(colour="black",size=rel(1.25)),
           axis.title.y = element_text(colour="black",size=rel(1.25)),
@@ -717,7 +720,7 @@ server <- function(input, output, session) {
         axis.text = element_text(color="black", size=rel(0.75)),
         axis.title = element_blank(),
         strip.background = element_blank(),
-        strip.text = element_text(color="black", size=rel(1.25)),
+        strip.text = element_text(color="black", size=rel(1)),
         axis.ticks = element_blank(),
         axis.line = element_blank(),
         legend.title = element_blank()
