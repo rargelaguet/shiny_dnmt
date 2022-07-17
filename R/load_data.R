@@ -21,6 +21,7 @@ cells <- fread(paste0(data_folder,"/rna_expression/rna_expr_cells.txt"), header=
 ########################
 
 cell_metadata.dt <- fread(paste0(data_folder,"/cell_metadata.txt.gz")) %>% 
+  # .[celltype%in%celltypes] %>%
   .[,celltype := factor(celltype, levels = celltypes, ordered = TRUE)] %>%
   setkey(cell)
 # .[,sample = factor(sample, levels = names(samples), ordered = TRUE)

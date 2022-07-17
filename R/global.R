@@ -173,8 +173,8 @@ celltype_colours <- c(
 celltype_palette = scale_color_manual(values = celltype_colours, name = "", drop=TRUE)
 celltype_palette_fill = scale_fill_manual(values = celltype_colours, name = "", drop=TRUE)
 
-sample_palette <- scale_color_brewer(palette="Dark2")
-sample_palette_fill <- scale_fill_brewer(palette="Dark2")
+sample_palette <- scale_color_brewer(palette="Paired")
+sample_palette_fill <- scale_fill_brewer(palette="Paired")
 
 dataset_palette <- scale_color_brewer(palette="Dark2")
 dataset_palette_fill <- scale_fill_brewer(palette="Dark2")

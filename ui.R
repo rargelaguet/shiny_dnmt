@@ -16,7 +16,7 @@ celltypes_pseudobulk <- celltypes
 
 ui <- shinyUI(fluidPage(
   navbarPage(
-    title = "A cellular atlas of DNA methylation dysregulation during mouse early organogenesis",
+    title = "Single-cell multi-omics profiling links dynamic DNA methylation to cell fate decisions during mouse early organogenesis",
     theme = shinytheme("spacelab"),
 
     tabPanel(
@@ -60,7 +60,7 @@ ui <- shinyUI(fluidPage(
       sidebarPanel(width=3,
         selectInput(inputId = "class", label = "Class", choices = classes, selected = "WT"),
         selectInput(inputId = "colourby", label = "Plot colour", choices = c("Cell type"="celltype", "Data set"="dataset", "Sample"="sample", "Gene expression"="gene_expression"), selected = "celltype"),
-        checkboxInput("subset_cells_umap", "Subset number of cells for the UMAP", value = TRUE),
+        checkboxInput("subset_cells_umap", "Subset number of cells (faster plotting)", value = TRUE),
         conditionalPanel(
           condition = "input.colourby == 'gene_expression'",
           selectizeInput("gene_umap", "Select gene to show RNA expression", choices = NULL, selected = "T")
@@ -142,6 +142,9 @@ ui <- shinyUI(fluidPage(
         # checkboxInput("split_samples", "Split samples", value = T),
         checkboxInput("remove_extraembryonic", "Remove Extraembryonic cell types", value = F),
         checkboxGroupInput("dataset_celltype_proportions", label = "Data set",  choices = list("KO" = "KO", "CRISPR (Grosswendt2020)" = "CRISPR"), selected = c("KO","CRISPR")),
+        
+        checkboxInput("split_by_dataset_celltype_proportions", label = "Split by data set",  value=F),
+        
         selectizeInput("visualisation_type_celltype_proportions", label = "visualisation",  choices = c("Barplots per sample", "Boxplots per class"), selected = "Boxplots per class")
       ),
       mainPanel(
@@ -172,7 +175,7 @@ ui <- shinyUI(fluidPage(
       sidebarPanel(width=3,
         selectInput("repetitive_elements", "Elements", choices = repeat_classes, selected = c("IAP","LINE_L1","LTR_ERVK"), multiple = TRUE),
         selectInput("repetitive_classes", "Classes", choices = classes[classes!="WT"], selected = classes[classes!="WT"], multiple = TRUE),
-        selectInput("repetitive_celltypes", "Celltypes", choices = celltypes_pseudobulk[1:4], selected = celltypes_pseudobulk, multiple = TRUE)
+        selectInput("repetitive_celltypes", "Celltypes", choices = celltypes_pseudobulk, selected = celltypes_pseudobulk[1:4], multiple = TRUE)
       ),
       mainPanel(
         HTML("A positive sign indicates that the repeat element is more expressed in the KO"),

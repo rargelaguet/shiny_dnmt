@@ -1,4 +1,4 @@
-This is the accompanying interactive webserver for the Dnmt1<sup>-/-</sup>, Dnmt3a<sup>-/-</sup> and Dnmt3b<sup>-/-</sup> KO analysis of our study [Single-cell multi-omics profiling links dynamic DNA methylation to cell fate decisions during early mouse organogenesis](XXX). It covers most of Figure 1-2 as well as Supplementary Figures 1-6.
+This is the accompanying interactive webserver for the Dnmt1<sup>-/-</sup>, Dnmt3a<sup>-/-</sup> and Dnmt3b<sup>-/-</sup> KO analysis of our study [Single-cell multi-omics profiling links dynamic DNA methylation to cell fate decisions during mouse early organogenesis](XXX). It covers most of Figure 1-2 as well as Supplementary Figures 1-6.
 
 
 ### Experimental design

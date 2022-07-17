@@ -209,66 +209,40 @@ server <- function(input, output, session) {
     ## Fetch data ##
     
     # Load UMAP
-    umap.dt <- fread(file.path(data_folder,sprintf("/dimensionality_reduction/%s/umap.txt.gz",input$class)))
-    to.plot <- umap.dt %>% merge(cell_metadata.dt[,c("cell","celltype","dataset","sample","stage")], by=c("cell"))
+    to.plot <- fread(file.path(data_folder,sprintf("/dimensionality_reduction/%s/umap.txt.gz",input$class))) %>%
+      merge(cell_metadata.dt[!is.na(celltype),c("cell","celltype","dataset","sample")], by="cell")
     
     # define color variable
     if (input$colourby == "gene_expression") {
-      tmp <- data.table(
-        cell = colnames(link_rna_expr),
-        color = as.numeric(link_rna_expr[input$gene_umap,])
-      )
-      to.plot <- to.plot %>% merge(tmp,by="cell") %>% setorder(color)
+      to.plot <- to.plot %>%
+        .[,color:=as.numeric(rna_expr_cells.array[input$gene_umap,cell])]
     } else {
       to.plot$color <- to.plot[[input$colourby]]
     }
-
-    ## Plot PAGA ##
-    
-    # celltypes <- sapply(paga$val,"[[","vertex.names")
-    # alphas <- rep(1.0,length(celltypes)); names(alphas) <- celltypes
-    # sizes <- rep(8,length(celltypes)); names(sizes) <- celltypes
-    # 
-    # p.paga <- ggnet2_interactive(
-    #   net = paga,
-    #   mode = c("x", "y"),
-    #   color = celltype_colours[celltypes],
-    #   node.alpha = alphas,
-    #   node.size = sizes,    
-    #   edge.size = 0.15,
-    #   edge.color = "grey",
-    #   label = TRUE,
-    #   label.size = 3
-    # )
     
     ## Plot UMAP ##
     
     # Subset UMAP for faster visualisation
     if (input$subset_cells_umap) {
-      to.plot.umap <- to.plot[sample(1:.N, size=.N/3)]      
+      to.plot.umap <- to.plot[sample(1:.N, size=.N/2)] %>% setorder(color)    
     } else {
-      to.plot.umap <- to.plot
+      to.plot.umap <- to.plot %>% setorder(color)
     }
     
     p.umap <- ggplot(to.plot.umap, aes(x = UMAP1, y = UMAP2, color = color)) +
-      # geom_point(size = 1, alpha = 0.9) +
-      geom_point_interactive(aes(tooltip = celltype, data_id = celltype), size=0.75, alpha=0.9) +
-      coord_fixed(ratio = 0.8) +
+      geom_point_interactive(aes(tooltip = celltype, data_id = celltype), size=1.25, alpha=0.9, stroke=0.15) +
       theme_classic() +
       ggplot_theme_NoAxes() +
       theme(
-        legend.position = "none"
+        legend.title = element_blank()
       )
 
     # Modify legends    
     if (input$colourby%in%c("celltype","sample","dataset")) {
       p.umap <- p.umap + 
-        guides(colour = guide_legend(override.aes = list(size=5, alpha = 1)))
+        guides(colour = guide_legend(ncol=1, override.aes = list(size=3.5, alpha = 1)))
     } else {
-      p.umap <- p.umap +
-        theme(
-          legend.title = element_blank()
-        )
+      # p.umap <- p.umap + theme(legend.title = element_blank())
     }
     
     # Define palette
@@ -300,7 +274,7 @@ server <- function(input, output, session) {
         theme(
           legend.position = "none",
           # axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1, color="black"),
-          axis.text.x = element_text(color="black"),
+          axis.text.x = element_text(color="black", size=rel(0.75)),
           axis.text.y = element_text(color="black", size=rel(0.8)),
           axis.title.x = element_blank()
         )
@@ -311,7 +285,6 @@ server <- function(input, output, session) {
       
       p2 <- ggplot(to.plot, aes(x = celltype, y = color, fill = celltype)) +
         geom_violin(scale = "width", alpha=0.8) +
-        # geom_boxplot(width=0.5, outlier.shape=NA, alpha=0.8) +
         geom_boxplot_interactive(aes(tooltip=celltype, data_id=celltype), width=0.5, outlier.shape=NA, alpha=0.8) +
         labs(y = "Log2 normalised counts") +
         annotate(
@@ -320,16 +293,16 @@ server <- function(input, output, session) {
           x = names(clust.sizes),
           y = rep_len(c(max(to.plot$color)*1.1, max(to.plot$color) * 1.2), length.out = length(clust.sizes)),
           label = as.vector(clust.sizes),
-          size = 3
+          size = 2.5
         ) +
         celltype_palette_fill +
         theme_classic() +
         theme(
-          axis.title = element_text(size = 10, color="black"),
+          axis.title.y = element_text(size = 10, color="black"),
+          axis.title.x = element_blank(),
           axis.text.y = element_text(size = 9, color="black"),
-          axis.text.x = element_text(size = 9, color="black", angle = 90, hjust = 1, vjust = 0.5),
-          legend.position = "none",
-          axis.title.x = element_blank()
+          axis.text.x = element_text(size = 8, color="black", angle = 90, hjust = 1, vjust = 0.5),
+          legend.position = "none"
         )
     }
 
@@ -343,7 +316,7 @@ server <- function(input, output, session) {
     girafe(
       # code = print(p.paga+p.umap+p2 + plot_layout(design = layout)),
       code = print(p.umap+p2 + plot_layout(design = layout)),
-      width_svg = 13, height_svg = 9,
+      width_svg = 12, height_svg = 10,
       options = list( 
         opts_sizing(rescale = FALSE),
         # opts_selection(type = "single", css = "cursor:pointer;fill:magenta;color:magenta"),
@@ -356,7 +329,7 @@ server <- function(input, output, session) {
   })
   
   output$umap = renderGirafe({
-    # shiny::validate(need(input$gene_umap%in%genes, "" ))
+    shiny::validate(need(input$gene_umap%in%genes, "" ))
     plot_UMAP()
   })
  
@@ -757,10 +730,11 @@ server <- function(input, output, session) {
     # input$dataset_celltype_proportions <- c("KO", "CRISPR")
     # input$visualisation_type_celltype_proportions <- "barplots"
     # input$remove_extraembryonic <- FALSE
+    # input$split_by_dataset_celltype_proportions <- FALSE
     ## END TEST ##
     
     to.plot <- cell_metadata.dt %>% 
-      .[class==input$class_celltype_proportions & dataset%in%input$dataset_celltype_proportions] 
+      .[class==input$class_celltype_proportions & dataset%in%input$dataset_celltype_proportions & celltype%in%celltypes] 
     
     # remove ExE cells
     if (input$remove_extraembryonic) {
@@ -779,12 +753,16 @@ server <- function(input, output, session) {
     # Plot
     if (input$visualisation_type_celltype_proportions=="Barplots per sample") {
       
+      # define cell type order
+      celltype.order <- to.plot %>% .[,mean(celltype_proportion),by="celltype"] %>% setorder(-V1) %>% .$celltype
+      to.plot <- to.plot %>% .[,celltype:=factor(celltype,levels=celltype.order)]
+      
       # Define sample order
       to.plot[,sample:=sprintf("(%s) %s",dataset,sample)]
       
       p <- ggplot(to.plot, aes(x=celltype, y=celltype_proportion)) +
         # geom_bar(aes(fill=celltype), stat="identity", color="black") +
-        geom_bar_interactive(aes(tooltip=celltype, data_id=celltype, fill=celltype), stat = "identity", color="black") +
+        geom_bar_interactive(aes(tooltip=celltype, data_id=celltype, fill=celltype), size=0.25, stat = "identity", color="black") +
         scale_fill_manual(values=celltype_colours) +
         facet_wrap(~sample, scales="free_x") +
         coord_flip() +
@@ -794,38 +772,45 @@ server <- function(input, output, session) {
         guides(fill=guide_legend(ncol=1)) +
         theme(
           legend.position = "none",
-          # legend.key.size = unit(0.50, "cm"),
-          # strip.background = element_blank(),
+          strip.background = element_blank(),
           # strip.text = element_text(color="black", size=rel(0.9)),
-          axis.title.x = element_text(color="black", size=rel(0.75)),
+          axis.title.x = element_text(color="black", size=rel(1.25)),
           axis.title.y = element_blank(),
           axis.ticks.y = element_blank(),
-          axis.text.y = element_text(size=rel(0.5), color="black"),
-          axis.text.x = element_text(size=rel(1), color="black")
+          axis.text.y = element_text(size=rel(0.6), color="black"),
+          axis.text.x = element_text(size=rel(0.75), color="black")
         )
     } else if (input$visualisation_type_celltype_proportions=="Boxplots per class") {
       
+      # define cell type order
+      celltype.order <- to.plot %>% .[,mean(celltype_proportion),by="celltype"] %>% setorder(-V1) %>% .$celltype
+      to.plot <- to.plot %>% .[,celltype:=factor(celltype,levels=celltype.order)]
+      
       p <- ggplot(to.plot, aes(x=celltype, y=celltype_proportion, fill=celltype)) +
-        geom_point_interactive(aes(tooltip=celltype, data_id=celltype), color="black", shape=21) +
+        geom_point_interactive(aes(tooltip=celltype, data_id=celltype), size=2.75, alpha=0.8, stroke=0.1, color="black", shape=21) +
         geom_boxplot_interactive(aes(tooltip=celltype, data_id=celltype), color="black", outlier.shape=NA, alpha=0.8) +
         scale_fill_manual(values=celltype_colours) +
-        facet_wrap(~dataset, scales="fixed") +
         coord_flip() +
         labs(y="Fraction of cells") +
         theme_bw() +
         theme(
           legend.position = "none",
+          strip.background = element_blank(),
           strip.text = element_text(color="black", size=rel(1.25)),
-          axis.title.x = element_text(color="black", size=rel(1.0)),
+          axis.title.x = element_text(color="black", size=rel(1.25)),
           axis.title.y = element_blank(),
           axis.text.y = element_text(size=rel(1.25), color="black"),
-          axis.text.x = element_text(size=rel(1), color="black")
+          axis.text.x = element_text(size=rel(1.25), color="black")
         )
+      
+      if (input$split_by_dataset_celltype_proportions) {
+        p <- p + facet_wrap(~dataset, scales="fixed")
+      }
     }
     
     girafe(
       code = print(p),
-      width_svg = 13, height_svg = 9,
+      width_svg = 13, height_svg = 10,
       options = list( 
         opts_sizing(rescale = FALSE),
         opts_selection(type = "single", css = ""),
@@ -849,9 +834,9 @@ server <- function(input, output, session) {
     
     ## START TEST ##
     # input <- list()
-    # input$class_celltype_comparisons <- c("Dnmt1_KO","Dnmt3a_KO")
+    # input$class_celltype_comparisons <- "Dnmt1_KO"
     # input$dataset_celltype_comparisons <- c("KO", "CRISPR")
-    # input$remove_extraembryonic_celltype_comparisons <- TRUE
+    # input$remove_extraembryonic_celltype_comparisons <- FALSE
     ## END TEST ##
     
     # remove small embryos
@@ -862,7 +847,7 @@ server <- function(input, output, session) {
     # }
     
     # Select KO samples    
-    cell_metadata_filt.dt <- cell_metadata.dt[dataset%in%input$dataset_celltype_comparisons]
+    cell_metadata_filt.dt <- cell_metadata.dt[dataset%in%input$dataset_celltype_comparisons & celltype%in%celltypes]
     
     if (input$remove_extraembryonic_celltype_comparisons) {
       cell_metadata_filt.dt <- cell_metadata_filt.dt[!celltype%in%c("Visceral_endoderm","ExE_endoderm","ExE_ectoderm","Parietal_endoderm")]
@@ -966,6 +951,8 @@ server <- function(input, output, session) {
     to.plot %>% .[,class:=factor(class,levels=input$repetitive_classes)]
     to.plot %>% .[,repeat_class:=factor(repeat_class,levels=input$repetitive_elements)] 
     to.plot %>% .[,celltype:=factor(celltype,levels=input$repetitive_celltypes)]
+    to.plot %>% .[,data_id:=sprintf("%s-%s-%s",repeat_class,class,celltype)]
+    to.plot %>% .[,tooltip:=sprintf("%s\n%s\n%s\nlogFC=%s",repeat_class,class,celltype,logFC)]
     
     # filter entries with lots of NAs
     # to.plot <- to.plot[,foo:=mean(is.na(diff)),by=c("celltype","gene")] %>% .[foo<1] %>% .[,foo:=NULL]
@@ -978,14 +965,13 @@ server <- function(input, output, session) {
     #   p.heatmap <- ggplot(to.plot, aes(x=celltype, y=repeat_class, fill=logFC)) + facet_wrap(~class, ncol=1)
     # }
     
-    to.plot[,tooltip:=sprintf("%s\n%s\n%s\nlogFC=%s",repeat_class,class,celltype,logFC)]
     
     p.heatmap <- ggplot(to.plot, aes(x=class, y=celltype, fill=logFC)) + 
-      geom_tile_interactive(aes(tooltip=tooltip), color="black") +
+      geom_tile_interactive(aes(data_id=data_id, tooltip=tooltip), color="black") +
       scale_fill_gradient2(low = "blue", mid = "white", high = "red", na.value = 'gray70' ) +
       facet_wrap(~repeat_class, ncol=1) +
       theme_classic() +
-      guides(x = guide_axis(angle = 90)) +
+      # guides(x = guide_axis(angle = 90)) +
       theme(
         axis.text = element_text(color="black", size=rel(0.90)),
         axis.title = element_blank(),
@@ -1007,18 +993,18 @@ server <- function(input, output, session) {
     to.plot %>% .[,celltype:=factor(celltype,levels=input$repetitive_celltypes)]
     
     to.plot.means <- to.plot[,.(expr=round(mean(expr),2),sd=sd(expr)), by=c("celltype","class","repeat_class")] %>%
-      .[,tooltip:=sprintf("%s\n%s\n%s\nexpr=%s",repeat_class,class,celltype,expr)]
+      .[,tooltip:=sprintf("%s\n%s\n%s\nexpr=%s",repeat_class,class,celltype,expr)] %>%
+      .[,data_id:=sprintf("%s-%s-%s",repeat_class,class,celltype)]
     
-
+    
     p.barplot <- ggplot(to.plot.means, aes(x=celltype, y=expr, fill=class)) +
-      geom_bar_interactive(aes(tooltip=tooltip), stat="identity", position="dodge", color="black", width=0.80, size=0.25) +
-      geom_point(size=1, alpha=0.50, shape=21, position = position_jitterdodge(jitter.width=0.1), data=to.plot) +
+      geom_bar_interactive(aes(data_id=data_id, tooltip=tooltip), stat="identity", position="dodge", color="black", width=0.80, size=0.25) +
+      geom_point(size=1, alpha=0.50, shape=21, position = position_jitterdodge(jitter.width=0.1), data=to.plot, show.legend = F) +
       # geom_errorbar(aes(ymin=expr-sd, ymax=expr+sd), position=position_dodge(width=0.9), width=0.25, alpha=0.75, size=0.5) +
       facet_wrap(~repeat_class, scales="fixed", ncol=1) +
       scale_fill_manual(values=class_colors[c("WT",input$repetitive_classes)]) +
       theme_classic() +
       labs(x="",y="RNA expression") +
-      guides(x = guide_axis(angle = 90)) +
       theme(
         strip.background = element_blank(),
         plot.title = element_text(hjust = 0.5),
@@ -1031,11 +1017,18 @@ server <- function(input, output, session) {
         legend.title = element_blank()
       )
     
+    if (length(input$repetitive_celltypes)>=5) {
+      p.barplot <- p.barplot + guides(x = guide_axis(angle = 90))
+    }
+    
     girafe(
       code = print(p.heatmap+p.barplot),
-      width_svg = 13, height_svg = 9,
+      width_svg = 12, height_svg = 7,
       options = list( 
-        opts_sizing(rescale = FALSE)
+        # opts_sizing(rescale = FALSE)
+        # opts_selection(type = "single", css = ""),
+        # opts_hover_inv(css = "opacity:0.65")
+        opts_hover(css = "cursor:pointer;fill:magenta;stroke:magenta;color:magenta")
       )
     ) %>% return(.)
     
