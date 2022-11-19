@@ -4,6 +4,6 @@ This repository contains the code for the R shiny app for the Dnmt1<sup>-/-</sup
 The source code for the second part of the paper, where we explore the *Tet*-TKO embryos, is available in [this repository](https://github.com/rargelaguet/10x_gastrulation_TetChimera)
 
 
-Link to the app: https://www.bioinformatics.babraham.ac.uk/shiny/dnmt_ko_embryo_scrna/
+Link to the app: https://www.bioinformatics.babraham.ac.uk/shiny/shiny_dnmt/
 
 
